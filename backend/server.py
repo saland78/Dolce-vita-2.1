@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import os
@@ -20,6 +20,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Middleware to handle HTTPS behind proxy correctly (since we can't edit supervisord)
+@app.middleware("http")
+async def fix_proxy_headers(request: Request, call_next):
+    # Trust X-Forwarded-Proto if present
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    if forwarded_proto:
+        request.scope["scheme"] = forwarded_proto
+    return await call_next(request)
 
 # API Router
 api_router = APIRouter(prefix="/api")
