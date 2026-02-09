@@ -4,11 +4,17 @@ import { getStats, getOrders } from '../api/api';
 import { ArrowUpRight, Clock, CheckCircle, Truck, Package, ChefHat } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const StatCard = ({ title, value, icon: Icon, color }) => (
+const formatCurrency = (value) => {
+    return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+};
+
+const StatCard = ({ title, value, icon: Icon, color, isCurrency }) => (
     <div className="bg-white p-6 rounded-2xl border border-border shadow-sm flex items-start justify-between hover:shadow-md transition-all">
         <div>
             <p className="text-sm text-muted-foreground font-medium mb-1">{title}</p>
-            <h3 className="text-3xl font-serif font-bold text-primary">{value}</h3>
+            <h3 className="text-3xl font-serif font-bold text-primary">
+                {isCurrency ? formatCurrency(value) : value}
+            </h3>
         </div>
         <div className={`p-3 rounded-full ${color}`}>
             <Icon size={24} />
@@ -41,16 +47,16 @@ const Dashboard = () => {
 
     // Mock chart data
     const chartData = [
-        { name: 'Mon', sales: 4000 },
-        { name: 'Tue', sales: 3000 },
-        { name: 'Wed', sales: 2000 },
-        { name: 'Thu', sales: 2780 },
-        { name: 'Fri', sales: 1890 },
-        { name: 'Sat', sales: 6390 },
-        { name: 'Sun', sales: 3490 },
+        { name: 'Lun', sales: 400 },
+        { name: 'Mar', sales: 300 },
+        { name: 'Mer', sales: 200 },
+        { name: 'Gio', sales: 278 },
+        { name: 'Ven', sales: 189 },
+        { name: 'Sab', sales: 639 },
+        { name: 'Dom', sales: 349 },
     ];
 
-    if (loading) return <div className="flex h-screen items-center justify-center text-primary">Caricamento Pasticceria...</div>;
+    if (loading) return <div className="flex h-screen items-center justify-center text-primary font-serif">Caricamento Pasticceria...</div>;
 
     return (
         <Layout>
@@ -80,9 +86,10 @@ const Dashboard = () => {
                 />
                  <StatCard 
                     title="Incasso Oggi" 
-                    value={`€${stats?.today_revenue || 0}`} 
+                    value={stats?.today_revenue || 0} 
                     icon={ArrowUpRight} 
                     color="bg-green-100 text-green-600" 
+                    isCurrency={true}
                 />
             </div>
 
@@ -114,7 +121,7 @@ const Dashboard = () => {
                             <div key={order._id} className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg transition-colors border-b border-dashed border-border last:border-0">
                                 <div>
                                     <p className="font-medium text-primary">{order.customer_name}</p>
-                                    <p className="text-xs text-muted-foreground">{order.items.length} articoli • €{order.total_amount}</p>
+                                    <p className="text-xs text-muted-foreground">{order.items.length} articoli • {formatCurrency(order.total_amount)}</p>
                                 </div>
                                 <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
                                     ${order.status === 'received' ? 'bg-yellow-100 text-yellow-700' : 

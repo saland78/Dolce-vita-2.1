@@ -3,17 +3,9 @@ import axios from 'axios';
 // FORCE HTTPS URL
 const backendUrl = "https://sweettrack-4.preview.emergentagent.com";
 
-console.log("Using Backend URL:", backendUrl);
-
 const api = axios.create({
   baseURL: backendUrl,
-  withCredentials: true, // CRITICAL FOR COOKIES
-});
-
-// Add interceptor to debug requests
-api.interceptors.request.use(request => {
-  console.log('Starting Request', request.url, request.baseURL);
-  return request;
+  withCredentials: true,
 });
 
 // Auth
@@ -32,5 +24,8 @@ export const getIngredients = async () => (await api.get('/api/inventory/ingredi
 export const getProducts = async () => (await api.get('/api/inventory/products')).data;
 export const getProductOrders = async (productId) => (await api.get(`/api/inventory/products/${productId}/orders`)).data;
 export const seedInventory = async () => (await api.post('/api/inventory/seed')).data;
+
+// Customers
+export const getCustomers = async () => (await api.get('/api/customers')).data;
 
 export default api;

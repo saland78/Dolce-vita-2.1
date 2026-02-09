@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Box, Settings, ChefHat, LogOut, PlusCircle, CakeSlice } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Box, Settings, ChefHat, LogOut, PlusCircle, CakeSlice, Users } from 'lucide-react';
 import { simulateOrder, logout } from '../api/api';
 import { toast } from 'sonner';
 
@@ -61,8 +61,11 @@ const Layout = ({ children }) => {
         <nav className="space-y-2 flex-1">
           <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" active={location.pathname === '/' || location.pathname === '/dashboard'} />
           <SidebarItem icon={ShoppingBag} label="Ordini" to="/orders" active={location.pathname === '/orders'} />
-          <SidebarItem icon={Box} label="Materie Prime" to="/inventory" active={location.pathname === '/inventory'} />
+          <SidebarItem icon={Users} label="Clienti" to="/clients" active={location.pathname === '/clients'} />
+          <div className="my-4 border-t border-border mx-2"></div>
+          <p className="px-4 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Catalogo</p>
           <SidebarItem icon={CakeSlice} label="Prodotti Finiti" to="/products" active={location.pathname === '/products'} />
+          <SidebarItem icon={Box} label="Materie Prime" to="/inventory" active={location.pathname === '/inventory'} />
         </nav>
 
         <div className="pt-6 border-t border-border space-y-4">
@@ -72,17 +75,14 @@ const Layout = ({ children }) => {
                 className="w-full flex items-center justify-center gap-2 bg-accent text-white py-2 px-4 rounded-full text-sm font-medium hover:bg-accent/90 transition-all shadow-md active:scale-95"
             >
                 <PlusCircle size={16} />
-                {simulating ? "Simulazione..." : "Simula Ordine WP"}
+                {simulating ? "Simulazione..." : "Simula WP"}
             </button>
             <div className="flex items-center gap-3 px-4 py-2">
                 <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-primary font-bold">A</div>
                 <div className="flex-1">
                     <p className="text-sm font-medium">Admin User</p>
-                    <p className="text-xs text-muted-foreground">Proprietario</p>
+                    <button onClick={handleLogout} className="text-xs text-muted-foreground hover:text-destructive text-left block">Esci</button>
                 </div>
-                <button onClick={handleLogout} title="Logout">
-                    <LogOut size={16} className="text-muted-foreground cursor-pointer hover:text-destructive" />
-                </button>
             </div>
         </div>
       </aside>

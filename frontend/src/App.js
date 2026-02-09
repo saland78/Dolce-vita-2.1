@@ -3,6 +3,7 @@ import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import Inventory from "./pages/Inventory";
 import Products from "./pages/Products";
+import Clients from "./pages/Clients";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthCallback from "./components/AuthCallback";
@@ -25,6 +26,7 @@ const AppRouter = () => {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/orders" element={<Orders />} />
+                <Route path="/clients" element={<Clients />} />
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/products" element={<Products />} />
             </Route>
