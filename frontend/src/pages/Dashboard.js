@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { getStats, getOrders } from '../api/api';
-import { ArrowUpRight, Clock, CheckCircle, Truck, Package } from 'lucide-react';
+import { ArrowUpRight, Clock, CheckCircle, Truck, Package, ChefHat } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const StatCard = ({ title, value, icon: Icon, color }) => (
