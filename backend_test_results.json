@@ -1,0 +1,259 @@
+{
+  "timestamp": "2026-02-09T10:29:32.760563",
+  "total_tests": 9,
+  "passed_tests": 9,
+  "success_rate": 100.0,
+  "test_details": [
+    {
+      "test_name": "API Root",
+      "endpoint": "api/",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "message": "BakeryOS API is running",
+        "status": "ok"
+      },
+      "error": null
+    },
+    {
+      "test_name": "Get Order Stats",
+      "endpoint": "api/orders/stats",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "total_orders": 0,
+        "pending": 0,
+        "production": 0,
+        "completed": 0,
+        "today_revenue": 0
+      },
+      "error": null
+    },
+    {
+      "test_name": "Get All Orders",
+      "endpoint": "api/orders",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": [],
+      "error": null
+    },
+    {
+      "test_name": "Simulate Order",
+      "endpoint": "api/orders/simulate",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "_id": "4a891a52-c6ce-4baf-8b3d-7ef2492a6536",
+        "customer_name": "Luca Neri",
+        "customer_email": "demo@example.com",
+        "source": "woocommerce_mock",
+        "items": [
+          {
+            "product_id": "sim-1",
+            "product_name": "Torta Sacher",
+            "quantity": 4,
+            "unit_price": 35.0
+          },
+          {
+            "product_id": "sim-1",
+            "product_name": "Bign\u00e8 Crema",
+            "quantity": 1,
+            "unit_price": 1.8
+          }
+        ],
+        "total_amount": 141.8,
+        "status": "received",
+        "created_at": "2026-02-09T10:29:32.437965Z",
+        "updated_at": "2026-02-09T10:29:32.437968Z",
+        "notes": null
+      },
+      "error": null
+    },
+    {
+      "test_name": "Simulate Order",
+      "endpoint": "api/orders/simulate",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "_id": "e7d89005-b72c-4785-9289-8bf537dbc710",
+        "customer_name": "Marco Bianchi",
+        "customer_email": "demo@example.com",
+        "source": "woocommerce_mock",
+        "items": [
+          {
+            "product_id": "sim-1",
+            "product_name": "Bign\u00e8 Crema",
+            "quantity": 3,
+            "unit_price": 1.8
+          },
+          {
+            "product_id": "sim-1",
+            "product_name": "Tiramisu Box",
+            "quantity": 5,
+            "unit_price": 25.0
+          },
+          {
+            "product_id": "sim-1",
+            "product_name": "Cannolo Siciliano",
+            "quantity": 2,
+            "unit_price": 3.0
+          }
+        ],
+        "total_amount": 136.4,
+        "status": "received",
+        "created_at": "2026-02-09T10:29:32.496916Z",
+        "updated_at": "2026-02-09T10:29:32.496918Z",
+        "notes": null
+      },
+      "error": null
+    },
+    {
+      "test_name": "Update Order Status",
+      "endpoint": "api/orders/e7d89005-b72c-4785-9289-8bf537dbc710/status?status=in_production",
+      "method": "PUT",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "_id": "e7d89005-b72c-4785-9289-8bf537dbc710",
+        "customer_name": "Marco Bianchi",
+        "customer_email": "demo@example.com",
+        "source": "woocommerce_mock",
+        "items": [
+          {
+            "product_id": "sim-1",
+            "product_name": "Bign\u00e8 Crema",
+            "quantity": 3,
+            "unit_price": 1.8
+          },
+          {
+            "product_id": "sim-1",
+            "product_name": "Tiramisu Box",
+            "quantity": 5,
+            "unit_price": 25.0
+          },
+          {
+            "product_id": "sim-1",
+            "product_name": "Cannolo Siciliano",
+            "quantity": 2,
+            "unit_price": 3.0
+          }
+        ],
+        "total_amount": 136.4,
+        "status": "in_production",
+        "created_at": "2026-02-09T10:29:32.496000",
+        "updated_at": "2026-02-09T10:29:32.534000",
+        "notes": null
+      },
+      "error": null
+    },
+    {
+      "test_name": "Seed Inventory",
+      "endpoint": "api/inventory/seed",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "message": "Seeded successfully"
+      },
+      "error": null
+    },
+    {
+      "test_name": "Get Ingredients",
+      "endpoint": "api/inventory/ingredients",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": [
+        {
+          "_id": "5d9b8e93-71f6-4d02-bdd3-d1dfbf1eb026",
+          "name": "Farina 00",
+          "quantity": 50.0,
+          "unit": "kg",
+          "reorder_threshold": 10.0,
+          "cost_per_unit": 1.2
+        },
+        {
+          "_id": "17f19c6d-8f02-476e-b5f4-aa5992f5c36d",
+          "name": "Zucchero Semolato",
+          "quantity": 20.0,
+          "unit": "kg",
+          "reorder_threshold": 5.0,
+          "cost_per_unit": 1.5
+        },
+        {
+          "_id": "f4b530a9-f2e9-4885-a62c-f4ebe0aec1d5",
+          "name": "Cioccolato Fondente",
+          "quantity": 10.0,
+          "unit": "kg",
+          "reorder_threshold": 2.0,
+          "cost_per_unit": 12.0
+        },
+        {
+          "_id": "d72e161b-8d9f-4d42-85af-8e5899353ebe",
+          "name": "Burro",
+          "quantity": 15.0,
+          "unit": "kg",
+          "reorder_threshold": 3.0,
+          "cost_per_unit": 8.0
+        },
+        {
+          "_id": "10248664-18c1-4b98-a3af-4321caac9f82",
+          "name": "Uova",
+          "quantity": 200.0,
+          "unit": "pz",
+          "reorder_threshold": 30.0,
+          "cost_per_unit": 0.3
+        }
+      ],
+      "error": null
+    },
+    {
+      "test_name": "Get Products",
+      "endpoint": "api/inventory/products",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": [
+        {
+          "_id": "7c640ca1-7a02-4a88-b039-e9095ff54461",
+          "name": "Torta Sacher",
+          "description": "Classica torta viennese al cioccolato",
+          "price": 35.0,
+          "category": "Torte",
+          "recipe": {}
+        },
+        {
+          "_id": "12aa60df-cd31-4f6c-b497-162c84c1ccf7",
+          "name": "Croissant Vuoto",
+          "description": "Sfoglia burrosa e fragrante",
+          "price": 1.5,
+          "category": "Colazione",
+          "recipe": {}
+        },
+        {
+          "_id": "b67471c7-680a-436c-94fa-ee65e4a082d9",
+          "name": "Bign\u00e8 Crema",
+          "description": "Pasta choux ripiena di crema pasticcera",
+          "price": 1.8,
+          "category": "Mignon",
+          "recipe": {}
+        }
+      ],
+      "error": null
+    }
+  ]
+}
