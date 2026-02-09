@@ -1,11 +1,11 @@
 import axios from 'axios';
 
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
+const backendUrl = process.env.REACT_APP_BACKEND_URL || "https://sweettrack-4.preview.emergentagent.com";
 
 console.log("Backend URL detected:", backendUrl); // Debug log
 
 const api = axios.create({
-  baseURL: backendUrl && backendUrl.startsWith('http') ? backendUrl : "http://localhost:8001",
+  baseURL: backendUrl,
 });
 
 export const getStats = async () => (await api.get('/api/orders/stats')).data;
