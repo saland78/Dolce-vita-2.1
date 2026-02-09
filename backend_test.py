@@ -98,6 +98,52 @@ class BakeryAPITester:
     def test_get_products(self):
         """Test getting products"""
         return self.run_test("Get Products", "GET", "api/inventory/products", 200)
+    
+    def test_auth_me_without_session(self):
+        """Test /api/auth/me without session - should return 401"""
+        return self.run_test("Auth Me (No Session)", "GET", "api/auth/me", 401)
+    
+    def test_get_product_orders(self):
+        """Test getting orders for a specific product"""
+        # First get products to get a valid product ID
+        success, products_data = self.test_get_products()
+        if not success or not products_data:
+            print("❌ Cannot test product orders - no products available")
+            return False, {}
+        
+        if len(products_data) > 0:
+            product_id = products_data[0].get('_id')
+            if product_id:
+                return self.run_test(
+                    "Get Product Orders", 
+                    "GET", 
+                    f"api/inventory/products/{product_id}/orders", 
+                    200
+                )
+        
+        print("❌ Cannot test product orders - no valid product ID")
+        return False, {}
+    
+    def test_email_trigger_simulation(self):
+        """Test email trigger by creating order and updating to Ready status"""
+        # First create an order
+        success, order_data = self.test_simulate_order()
+        if not success or not order_data:
+            print("❌ Cannot test email trigger - order creation failed")
+            return False, {}
+        
+        order_id = order_data.get('_id')
+        if not order_id:
+            print("❌ Cannot test email trigger - no order ID returned")
+            return False, {}
+
+        # Update status to Ready to trigger email
+        return self.run_test(
+            "Email Trigger (Ready Status)", 
+            "PUT", 
+            f"api/orders/{order_id}/status?status=ready", 
+            200
+        )
 
     def test_order_status_update(self):
         """Test updating order status"""
