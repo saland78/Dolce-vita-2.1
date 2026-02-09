@@ -1,0 +1,106 @@
+{
+  "identity": {
+    "name": "E1 - The Anti-AI Designer",
+    "tone": "Elegant, Artisanal, Refined, Warm, Professional",
+    "core_philosophy": "Fusion over Imitation. Emotion First. Content is King."
+  },
+  "typography": {
+    "headings": {
+      "font_family": "\"Playfair Display\", serif",
+      "usage": "All H1-H3 headings, Hero text, Feature titles",
+      "weights": ["400", "600", "700"],
+      "instructions": "Import from Google Fonts: @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');"
+    },
+    "body": {
+      "font_family": "\"Inter\", sans-serif",
+      "usage": "Paragraphs, UI elements, Data tables, Inputs",
+      "weights": ["300", "400", "500", "600"]
+    },
+    "rules": [
+      "Never use Inter for main headings.",
+      "Use tight tracking (tracking-tight) for large Playfair headings.",
+      "Use loose leading (leading-relaxed) for body text."
+    ]
+  },
+  "colors": {
+    "palette": {
+      "background": "#F9F7F2",
+      "foreground": "#3E2723",
+      "primary": "#3E2723",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#F5E6C8",
+      "secondary_foreground": "#3E2723",
+      "accent": "#C5A059",
+      "accent_foreground": "#FFFFFF",
+      "muted": "#EBE5DA",
+      "muted_foreground": "#8D7B68",
+      "card": "#FFFFFF",
+      "card_foreground": "#3E2723",
+      "border": "#E6DCC8",
+      "input": "#E6DCC8",
+      "ring": "#C5A059"
+    },
+    "usage_rules": [
+      "Background must be the warm cream (#F9F7F2), NOT pure white.",
+      "Text is deep chocolate brown (#3E2723), NOT black.",
+      "Primary actions use the Chocolate Brown.",
+      "Accents and highlights use the Muted Gold (#C5A059).",
+      "NO dark gradients. Use solid colors or subtle textures.",
+      "NO 'tech' blues, purples, or teals."
+    ]
+  },
+  "layout": {
+    "grid_system": "Bento Grid (Asymmetric)",
+    "spacing": "Generous. Use p-6, p-8, p-12. Avoid cramped interfaces.",
+    "container_style": "Rounded corners (rounded-xl or rounded-2xl). Soft shadows (shadow-sm or shadow-md).",
+    "dashboard_structure": {
+      "sidebar": "Dark Chocolate (#3E2723) with Gold (#C5A059) active states.",
+      "header": "Transparent or Glassmorphism (blur-md) with sticky positioning.",
+      "cards": "White background, soft border (#E6DCC8), elegant padding."
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 rounded-full px-8",
+      "secondary": "border border-accent text-accent hover:bg-accent/10 rounded-full px-8",
+      "ghost": "text-primary hover:bg-secondary/50 rounded-full"
+    },
+    "cards": {
+      "style": "bg-card text-card-foreground rounded-xl border border-border shadow-sm hover:shadow-md transition-all duration-300"
+    },
+    "inputs": {
+      "style": "bg-white/50 border-input focus:border-accent focus:ring-accent rounded-lg"
+    },
+    "overrides": [
+      "Radius: Use 0.75rem (12px) or 1rem (16px) for a softer, organic feel.",
+      "Shadows: Use warm, diffuse shadows: shadow-[0_4px_20px_-2px_rgba(62,39,35,0.1)]."
+    ]
+  },
+  "visual_enhancers": {
+    "textures": "Use subtle grain or paper texture overlays on the background if possible to enhance the 'artisanal' feel.",
+    "icons": "Lucide React. Use thin strokes (stroke-width={1.5}) for elegance.",
+    "motion": "Slow, smooth transitions. duration-500 ease-out. No bouncy spring animations."
+  },
+  "image_urls": {
+    "hero_background": "https://images.unsplash.com/photo-1769326541210-86e9d3204496?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzV8MHwxfHNlYXJjaHwxfHxhcnRpc2FuJTIwYmFrZXJ5JTIwaW50ZXJpb3IlMjBtYXJibGUlMjBjb3VudGVyfGVufDB8fHx8MTc3MDYzMjYyOXww&ixlib=rb-4.1.0&q=85",
+    "pastry_showcase_1": "https://images.unsplash.com/photo-1737700087841-f2bc25eb0b10?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwyfHxmcmVzaCUyMGNyb2lzc2FudHMlMjBwYXN0cnl8ZW58MHx8fHwxNzcwNjMyNjM3fDA&ixlib=rb-4.1.0&q=85",
+    "pastry_showcase_2": "https://images.unsplash.com/photo-1768326119181-5f3cfe0adb4c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwY2hvY29sYXRlJTIwY2FrZSUyMGdvbGQlMjBsZWFmfGVufDB8fHx8MTc3MDYzMjYzM3ww&ixlib=rb-4.1.0&q=85",
+    "bakery_interior": "https://images.unsplash.com/photo-1769326541248-5e09a8ace25b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzV8MHwxfHNlYXJjaHwyfHxhcnRpc2FuJTIwYmFrZXJ5JTIwaW50ZXJpb3IlMjBtYXJibGUlMjBjb3VudGVyfGVufDB8fHx8MTc3MDYzMjYyOXww&ixlib=rb-4.1.0&q=85"
+  },
+  "instructions_to_main_agent": [
+    "1. UPDATE tailwind.config.js with the colors defined in 'colors.palette'.",
+    "2. IMPORT Playfair Display in index.css.",
+    "3. APPLY the 'Cream' background globally in index.css (body { @apply bg-background text-foreground }).",
+    "4. CUSTOMIZE Shadcn components to match the 'rounded-xl' and 'border-gold' aesthetic.",
+    "5. USE the provided image URLs for placeholders.",
+    "6. ENSURE all interactive elements have data-testid attributes.",
+    "7. DO NOT use default Shadcn slate/zinc colors. Replace them with the Warm Brown/Cream palette."
+  ],
+  "universal_guidelines": [
+    "Avoid generic 'AI slop' designs.",
+    "No center-aligned layouts unless for specific hero balance.",
+    "Use glassmorphism for overlays.",
+    "Use Sonner for toasts.",
+    "Ensure accessibility (contrast ratios) for the Gold/Cream combinations."
+  ]
+}
