@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-02-09T12:57:44.406769",
-  "total_tests": 9,
-  "passed_tests": 9,
+  "timestamp": "2026-02-09T12:58:06.456675",
+  "total_tests": 14,
+  "passed_tests": 14,
   "success_rate": 100.0,
   "test_details": [
     {
@@ -25,11 +25,11 @@
       "actual_status": 200,
       "success": true,
       "response_data": {
-        "total_orders": 11,
-        "pending": 6,
-        "production": 4,
+        "total_orders": 13,
+        "pending": 7,
+        "production": 5,
         "completed": 1,
-        "today_revenue": 1027.3
+        "today_revenue": 1078.2
       },
       "error": null
     },
@@ -41,6 +41,56 @@
       "actual_status": 200,
       "success": true,
       "response_data": [
+        {
+          "_id": "1f5bf76f-3e74-4f7d-a9e5-eb226739d6b8",
+          "customer_name": "Luca Neri",
+          "customer_email": "demo.customer@example.com",
+          "source": "woocommerce_mock",
+          "items": [
+            {
+              "product_id": "3c5ce13e-6cbc-4ff1-afef-e150f564bd7c",
+              "product_name": "Croissant Vuoto",
+              "quantity": 1,
+              "unit_price": 1.5
+            },
+            {
+              "product_id": "459fd44c-5044-41e2-b935-59cb450b9616",
+              "product_name": "Bign\u00e8 Crema",
+              "quantity": 4,
+              "unit_price": 1.8
+            }
+          ],
+          "total_amount": 8.7,
+          "status": "in_production",
+          "created_at": "2026-02-09T12:57:44.239000",
+          "updated_at": "2026-02-09T12:57:44.282000",
+          "notes": null
+        },
+        {
+          "_id": "e9d3bab4-ec45-4c9a-9f63-35ec1342939f",
+          "customer_name": "Giulia Rossi",
+          "customer_email": "demo.customer@example.com",
+          "source": "woocommerce_mock",
+          "items": [
+            {
+              "product_id": "459fd44c-5044-41e2-b935-59cb450b9616",
+              "product_name": "Bign\u00e8 Crema",
+              "quantity": 4,
+              "unit_price": 1.8
+            },
+            {
+              "product_id": "010728a2-aec7-4786-a5f1-cc5f782ec683",
+              "product_name": "Torta Sacher",
+              "quantity": 1,
+              "unit_price": 35.0
+            }
+          ],
+          "total_amount": 42.2,
+          "status": "received",
+          "created_at": "2026-02-09T12:57:44.154000",
+          "updated_at": "2026-02-09T12:57:44.154000",
+          "notes": null
+        },
         {
           "_id": "8572979a-eefd-4d41-b2bc-7088c55b7387",
           "customer_name": "Luca Neri",
@@ -321,15 +371,15 @@
       "actual_status": 200,
       "success": true,
       "response_data": {
-        "_id": "e9d3bab4-ec45-4c9a-9f63-35ec1342939f",
-        "customer_name": "Giulia Rossi",
+        "_id": "2d93bb11-6b99-4acb-ac38-973b0ab2c0a3",
+        "customer_name": "Sofia Verdi",
         "customer_email": "demo.customer@example.com",
         "source": "woocommerce_mock",
         "items": [
           {
             "product_id": "459fd44c-5044-41e2-b935-59cb450b9616",
             "product_name": "Bign\u00e8 Crema",
-            "quantity": 4,
+            "quantity": 3,
             "unit_price": 1.8
           },
           {
@@ -337,12 +387,18 @@
             "product_name": "Torta Sacher",
             "quantity": 1,
             "unit_price": 35.0
+          },
+          {
+            "product_id": "3c5ce13e-6cbc-4ff1-afef-e150f564bd7c",
+            "product_name": "Croissant Vuoto",
+            "quantity": 2,
+            "unit_price": 1.5
           }
         ],
-        "total_amount": 42.2,
+        "total_amount": 43.4,
         "status": "received",
-        "created_at": "2026-02-09T12:57:44.154131Z",
-        "updated_at": "2026-02-09T12:57:44.154134Z",
+        "created_at": "2026-02-09T12:58:06.047525Z",
+        "updated_at": "2026-02-09T12:58:06.047528Z",
         "notes": null
       },
       "error": null
@@ -355,8 +411,8 @@
       "actual_status": 200,
       "success": true,
       "response_data": {
-        "_id": "1f5bf76f-3e74-4f7d-a9e5-eb226739d6b8",
-        "customer_name": "Luca Neri",
+        "_id": "24e77fdd-beba-482e-8cb4-c9c12d9b5731",
+        "customer_name": "Sofia Verdi",
         "customer_email": "demo.customer@example.com",
         "source": "woocommerce_mock",
         "items": [
@@ -369,28 +425,28 @@
           {
             "product_id": "459fd44c-5044-41e2-b935-59cb450b9616",
             "product_name": "Bign\u00e8 Crema",
-            "quantity": 4,
+            "quantity": 3,
             "unit_price": 1.8
           }
         ],
-        "total_amount": 8.7,
+        "total_amount": 6.9,
         "status": "received",
-        "created_at": "2026-02-09T12:57:44.239967Z",
-        "updated_at": "2026-02-09T12:57:44.239970Z",
+        "created_at": "2026-02-09T12:58:06.089331Z",
+        "updated_at": "2026-02-09T12:58:06.089335Z",
         "notes": null
       },
       "error": null
     },
     {
       "test_name": "Update Order Status",
-      "endpoint": "api/orders/1f5bf76f-3e74-4f7d-a9e5-eb226739d6b8/status?status=in_production",
+      "endpoint": "api/orders/24e77fdd-beba-482e-8cb4-c9c12d9b5731/status?status=in_production",
       "method": "PUT",
       "expected_status": 200,
       "actual_status": 200,
       "success": true,
       "response_data": {
-        "_id": "1f5bf76f-3e74-4f7d-a9e5-eb226739d6b8",
-        "customer_name": "Luca Neri",
+        "_id": "24e77fdd-beba-482e-8cb4-c9c12d9b5731",
+        "customer_name": "Sofia Verdi",
         "customer_email": "demo.customer@example.com",
         "source": "woocommerce_mock",
         "items": [
@@ -403,14 +459,14 @@
           {
             "product_id": "459fd44c-5044-41e2-b935-59cb450b9616",
             "product_name": "Bign\u00e8 Crema",
-            "quantity": 4,
+            "quantity": 3,
             "unit_price": 1.8
           }
         ],
-        "total_amount": 8.7,
+        "total_amount": 6.9,
         "status": "in_production",
-        "created_at": "2026-02-09T12:57:44.239000",
-        "updated_at": "2026-02-09T12:57:44.282000",
+        "created_at": "2026-02-09T12:58:06.089000",
+        "updated_at": "2026-02-09T12:58:06.127000",
         "notes": null
       },
       "error": null
@@ -436,7 +492,7 @@
       "success": true,
       "response_data": [
         {
-          "_id": "28804d28-0043-4a6b-92d3-1ddb08902240",
+          "_id": "f5dcd4df-34b3-465b-88db-f4a746d7ea7a",
           "name": "Farina 00",
           "quantity": 50.0,
           "unit": "kg",
@@ -444,7 +500,7 @@
           "cost_per_unit": 1.2
         },
         {
-          "_id": "717ddebb-bb54-4bd6-9a98-4bcd4b14b6d9",
+          "_id": "6ed6a56e-b5b3-4076-9869-6567fbdefdd0",
           "name": "Zucchero Semolato",
           "quantity": 20.0,
           "unit": "kg",
@@ -452,7 +508,7 @@
           "cost_per_unit": 1.5
         },
         {
-          "_id": "374d3c2c-09ce-4970-a5c3-6717b4621bf1",
+          "_id": "6f435bb5-44f6-42d0-8b2e-aacf1d23a6eb",
           "name": "Cioccolato Fondente",
           "quantity": 10.0,
           "unit": "kg",
@@ -460,7 +516,7 @@
           "cost_per_unit": 12.0
         },
         {
-          "_id": "c029fb96-1875-452a-9e11-8f30bdc69d4e",
+          "_id": "0c3c7329-dff1-4e43-8230-2cbc9ee904da",
           "name": "Burro",
           "quantity": 15.0,
           "unit": "kg",
@@ -468,7 +524,7 @@
           "cost_per_unit": 8.0
         },
         {
-          "_id": "524d30f3-d4d8-4ac7-89ef-c821c4c75faf",
+          "_id": "e191e8b0-37c9-495d-9696-69ae7afc02d6",
           "name": "Uova",
           "quantity": 200.0,
           "unit": "pz",
@@ -487,7 +543,7 @@
       "success": true,
       "response_data": [
         {
-          "_id": "1801cd94-5236-4e63-8e97-dd56e8ef44a8",
+          "_id": "37d96614-9b99-47dc-a19d-e87ecc036f27",
           "name": "Torta Sacher",
           "description": "Classica torta viennese al cioccolato",
           "price": 35.0,
@@ -495,7 +551,7 @@
           "image_url": null
         },
         {
-          "_id": "198686d0-3d7d-4cc1-b54f-3af6602934d1",
+          "_id": "ee34bc71-5036-43e5-83f1-ee79529808b0",
           "name": "Croissant Vuoto",
           "description": "Sfoglia burrosa e fragrante",
           "price": 1.5,
@@ -503,7 +559,7 @@
           "image_url": null
         },
         {
-          "_id": "73c188fb-2598-4c4e-a810-8bf6c23a72c2",
+          "_id": "354ce674-e507-4cbf-a00b-360d076b5fd4",
           "name": "Bign\u00e8 Crema",
           "description": "Pasta choux ripiena di crema pasticcera",
           "price": 1.8,
@@ -511,6 +567,131 @@
           "image_url": null
         }
       ],
+      "error": null
+    },
+    {
+      "test_name": "Auth Me (No Session)",
+      "endpoint": "api/auth/me",
+      "method": "GET",
+      "expected_status": 401,
+      "actual_status": 401,
+      "success": true,
+      "response_data": {
+        "detail": "Not authenticated"
+      },
+      "error": null
+    },
+    {
+      "test_name": "Get Products",
+      "endpoint": "api/inventory/products",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": [
+        {
+          "_id": "0884cfbe-a823-4770-b2b3-1a9140768b8c",
+          "name": "Torta Sacher",
+          "description": "Classica torta viennese al cioccolato",
+          "price": 35.0,
+          "category": "Torte",
+          "image_url": null
+        },
+        {
+          "_id": "0e541ce0-ba8f-4ec6-a98d-b135c001a818",
+          "name": "Croissant Vuoto",
+          "description": "Sfoglia burrosa e fragrante",
+          "price": 1.5,
+          "category": "Colazione",
+          "image_url": null
+        },
+        {
+          "_id": "ca6d24e1-37f0-423f-8143-eb7db65a1eeb",
+          "name": "Bign\u00e8 Crema",
+          "description": "Pasta choux ripiena di crema pasticcera",
+          "price": 1.8,
+          "category": "Mignon",
+          "image_url": null
+        }
+      ],
+      "error": null
+    },
+    {
+      "test_name": "Get Product Orders",
+      "endpoint": "api/inventory/products/0884cfbe-a823-4770-b2b3-1a9140768b8c/orders",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": [],
+      "error": null
+    },
+    {
+      "test_name": "Simulate Order",
+      "endpoint": "api/orders/simulate",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "_id": "8c68cc86-e0c2-4abd-acf3-05dea7fac34b",
+        "customer_name": "Marco Bianchi",
+        "customer_email": "demo.customer@example.com",
+        "source": "woocommerce_mock",
+        "items": [
+          {
+            "product_id": "459fd44c-5044-41e2-b935-59cb450b9616",
+            "product_name": "Bign\u00e8 Crema",
+            "quantity": 4,
+            "unit_price": 1.8
+          },
+          {
+            "product_id": "3c5ce13e-6cbc-4ff1-afef-e150f564bd7c",
+            "product_name": "Croissant Vuoto",
+            "quantity": 1,
+            "unit_price": 1.5
+          }
+        ],
+        "total_amount": 8.7,
+        "status": "received",
+        "created_at": "2026-02-09T12:58:06.408449Z",
+        "updated_at": "2026-02-09T12:58:06.408453Z",
+        "notes": null
+      },
+      "error": null
+    },
+    {
+      "test_name": "Email Trigger (Ready Status)",
+      "endpoint": "api/orders/8c68cc86-e0c2-4abd-acf3-05dea7fac34b/status?status=ready",
+      "method": "PUT",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "_id": "8c68cc86-e0c2-4abd-acf3-05dea7fac34b",
+        "customer_name": "Marco Bianchi",
+        "customer_email": "demo.customer@example.com",
+        "source": "woocommerce_mock",
+        "items": [
+          {
+            "product_id": "459fd44c-5044-41e2-b935-59cb450b9616",
+            "product_name": "Bign\u00e8 Crema",
+            "quantity": 4,
+            "unit_price": 1.8
+          },
+          {
+            "product_id": "3c5ce13e-6cbc-4ff1-afef-e150f564bd7c",
+            "product_name": "Croissant Vuoto",
+            "quantity": 1,
+            "unit_price": 1.5
+          }
+        ],
+        "total_amount": 8.7,
+        "status": "ready",
+        "created_at": "2026-02-09T12:58:06.408000",
+        "updated_at": "2026-02-09T12:58:06.450000",
+        "notes": null
+      },
       "error": null
     }
   ]
