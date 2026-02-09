@@ -184,6 +184,15 @@ def main():
     tester.test_seed_inventory()
     tester.test_get_ingredients()
     tester.test_get_products()
+    
+    print("\n=== Authentication Tests ===")
+    tester.test_auth_me_without_session()
+    
+    print("\n=== Product Features Tests ===")
+    tester.test_get_product_orders()
+    
+    print("\n=== Email Integration Tests ===")
+    tester.test_email_trigger_simulation()
 
     # Print summary
     print(f"\n📊 Test Results: {tester.tests_passed}/{tester.tests_run} passed")
