@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Box, Settings, ChefHat, LogOut, PlusCircle } from 'lucide-react';
-import { simulateOrder } from '../api/api';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, ShoppingBag, Box, Settings, ChefHat, LogOut, PlusCircle, CakeSlice } from 'lucide-react';
+import { simulateOrder, logout } from '../api/api';
 import { toast } from 'sonner';
 
 const SidebarItem = ({ icon: Icon, label, to, active }) => (
@@ -20,6 +20,7 @@ const SidebarItem = ({ icon: Icon, label, to, active }) => (
 
 const Layout = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [simulating, setSimulating] = useState(false);
 
   const handleSimulate = async () => {
@@ -27,12 +28,20 @@ const Layout = ({ children }) => {
     try {
       await simulateOrder();
       toast.success("Nuovo ordine ricevuto da WooCommerce!");
-      // Trigger a refresh event if needed, or rely on polling
     } catch (e) {
       toast.error("Errore nella simulazione");
     } finally {
       setSimulating(false);
     }
+  };
+
+  const handleLogout = async () => {
+      try {
+          await logout();
+          navigate('/login');
+      } catch (e) {
+          console.error(e);
+      }
   };
 
   return (
@@ -50,10 +59,10 @@ const Layout = ({ children }) => {
         </div>
 
         <nav className="space-y-2 flex-1">
-          <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" active={location.pathname === '/'} />
+          <SidebarItem icon={LayoutDashboard} label="Dashboard" to="/" active={location.pathname === '/' || location.pathname === '/dashboard'} />
           <SidebarItem icon={ShoppingBag} label="Ordini" to="/orders" active={location.pathname === '/orders'} />
-          <SidebarItem icon={Box} label="Magazzino" to="/inventory" active={location.pathname === '/inventory'} />
-          <SidebarItem icon={Settings} label="Prodotti" to="/products" active={location.pathname === '/products'} />
+          <SidebarItem icon={Box} label="Materie Prime" to="/inventory" active={location.pathname === '/inventory'} />
+          <SidebarItem icon={CakeSlice} label="Prodotti Finiti" to="/products" active={location.pathname === '/products'} />
         </nav>
 
         <div className="pt-6 border-t border-border space-y-4">
@@ -71,7 +80,9 @@ const Layout = ({ children }) => {
                     <p className="text-sm font-medium">Admin User</p>
                     <p className="text-xs text-muted-foreground">Proprietario</p>
                 </div>
-                <LogOut size={16} className="text-muted-foreground cursor-pointer hover:text-destructive" />
+                <button onClick={handleLogout} title="Logout">
+                    <LogOut size={16} className="text-muted-foreground cursor-pointer hover:text-destructive" />
+                </button>
             </div>
         </div>
       </aside>
