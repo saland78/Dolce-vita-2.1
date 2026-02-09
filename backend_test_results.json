@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-09T10:40:12.848927",
+  "timestamp": "2026-02-09T10:44:44.431623",
   "total_tests": 9,
   "passed_tests": 9,
   "success_rate": 100.0,
@@ -25,11 +25,11 @@
       "actual_status": 200,
       "success": true,
       "response_data": {
-        "total_orders": 6,
-        "pending": 4,
-        "production": 2,
+        "total_orders": 8,
+        "pending": 5,
+        "production": 3,
         "completed": 0,
-        "today_revenue": 438.00000000000006
+        "today_revenue": 650.5
       },
       "error": null
     },
@@ -41,6 +41,50 @@
       "actual_status": 200,
       "success": true,
       "response_data": [
+        {
+          "_id": "c0ecc783-feff-44a3-b111-e14632af1bc4",
+          "customer_name": "Giulia Rossi",
+          "customer_email": "demo@example.com",
+          "source": "woocommerce_mock",
+          "items": [
+            {
+              "product_id": "sim-1",
+              "product_name": "Torta Sacher",
+              "quantity": 1,
+              "unit_price": 35.0
+            },
+            {
+              "product_id": "sim-1",
+              "product_name": "Croissant Pistacchio",
+              "quantity": 1,
+              "unit_price": 2.5
+            }
+          ],
+          "total_amount": 37.5,
+          "status": "in_production",
+          "created_at": "2026-02-09T10:40:12.687000",
+          "updated_at": "2026-02-09T10:40:12.728000",
+          "notes": null
+        },
+        {
+          "_id": "2eab91ad-1063-489c-8525-f46d5b9f5a3c",
+          "customer_name": "Marco Bianchi",
+          "customer_email": "demo@example.com",
+          "source": "woocommerce_mock",
+          "items": [
+            {
+              "product_id": "sim-1",
+              "product_name": "Torta Sacher",
+              "quantity": 5,
+              "unit_price": 35.0
+            }
+          ],
+          "total_amount": 175.0,
+          "status": "received",
+          "created_at": "2026-02-09T10:40:12.651000",
+          "updated_at": "2026-02-09T10:40:12.651000",
+          "notes": null
+        },
         {
           "_id": "bf3a39a6-9dfe-41ef-bd1b-869706e0d832",
           "customer_name": "Luca Neri",
@@ -202,22 +246,28 @@
       "actual_status": 200,
       "success": true,
       "response_data": {
-        "_id": "2eab91ad-1063-489c-8525-f46d5b9f5a3c",
-        "customer_name": "Marco Bianchi",
+        "_id": "d2a9ebdd-6cf0-41d8-b266-b11bc20b84fb",
+        "customer_name": "Luca Neri",
         "customer_email": "demo@example.com",
         "source": "woocommerce_mock",
         "items": [
           {
             "product_id": "sim-1",
             "product_name": "Torta Sacher",
-            "quantity": 5,
+            "quantity": 3,
             "unit_price": 35.0
+          },
+          {
+            "product_id": "sim-1",
+            "product_name": "Bign\u00e8 Crema",
+            "quantity": 1,
+            "unit_price": 1.8
           }
         ],
-        "total_amount": 175.0,
+        "total_amount": 106.8,
         "status": "received",
-        "created_at": "2026-02-09T10:40:12.651810Z",
-        "updated_at": "2026-02-09T10:40:12.651813Z",
+        "created_at": "2026-02-09T10:44:44.230861Z",
+        "updated_at": "2026-02-09T10:44:44.230865Z",
         "notes": null
       },
       "error": null
@@ -230,62 +280,62 @@
       "actual_status": 200,
       "success": true,
       "response_data": {
-        "_id": "c0ecc783-feff-44a3-b111-e14632af1bc4",
-        "customer_name": "Giulia Rossi",
+        "_id": "8ecc4343-25e9-4d62-8b40-2ed0232ed981",
+        "customer_name": "Luca Neri",
         "customer_email": "demo@example.com",
         "source": "woocommerce_mock",
         "items": [
           {
             "product_id": "sim-1",
-            "product_name": "Torta Sacher",
-            "quantity": 1,
-            "unit_price": 35.0
+            "product_name": "Tiramisu Box",
+            "quantity": 5,
+            "unit_price": 25.0
           },
           {
             "product_id": "sim-1",
-            "product_name": "Croissant Pistacchio",
+            "product_name": "Torta Sacher",
             "quantity": 1,
-            "unit_price": 2.5
+            "unit_price": 35.0
           }
         ],
-        "total_amount": 37.5,
+        "total_amount": 160.0,
         "status": "received",
-        "created_at": "2026-02-09T10:40:12.687592Z",
-        "updated_at": "2026-02-09T10:40:12.687596Z",
+        "created_at": "2026-02-09T10:44:44.268304Z",
+        "updated_at": "2026-02-09T10:44:44.268307Z",
         "notes": null
       },
       "error": null
     },
     {
       "test_name": "Update Order Status",
-      "endpoint": "api/orders/c0ecc783-feff-44a3-b111-e14632af1bc4/status?status=in_production",
+      "endpoint": "api/orders/8ecc4343-25e9-4d62-8b40-2ed0232ed981/status?status=in_production",
       "method": "PUT",
       "expected_status": 200,
       "actual_status": 200,
       "success": true,
       "response_data": {
-        "_id": "c0ecc783-feff-44a3-b111-e14632af1bc4",
-        "customer_name": "Giulia Rossi",
+        "_id": "8ecc4343-25e9-4d62-8b40-2ed0232ed981",
+        "customer_name": "Luca Neri",
         "customer_email": "demo@example.com",
         "source": "woocommerce_mock",
         "items": [
           {
             "product_id": "sim-1",
-            "product_name": "Torta Sacher",
-            "quantity": 1,
-            "unit_price": 35.0
+            "product_name": "Tiramisu Box",
+            "quantity": 5,
+            "unit_price": 25.0
           },
           {
             "product_id": "sim-1",
-            "product_name": "Croissant Pistacchio",
+            "product_name": "Torta Sacher",
             "quantity": 1,
-            "unit_price": 2.5
+            "unit_price": 35.0
           }
         ],
-        "total_amount": 37.5,
+        "total_amount": 160.0,
         "status": "in_production",
-        "created_at": "2026-02-09T10:40:12.687000",
-        "updated_at": "2026-02-09T10:40:12.728000",
+        "created_at": "2026-02-09T10:44:44.268000",
+        "updated_at": "2026-02-09T10:44:44.307000",
         "notes": null
       },
       "error": null
@@ -311,7 +361,7 @@
       "success": true,
       "response_data": [
         {
-          "_id": "32181548-a804-4177-8442-207d6eb365a9",
+          "_id": "b55bf584-7a66-40d6-9335-f07dd6663d3e",
           "name": "Farina 00",
           "quantity": 50.0,
           "unit": "kg",
@@ -319,7 +369,7 @@
           "cost_per_unit": 1.2
         },
         {
-          "_id": "6ce0851a-93c3-4e8a-8002-9c4873d54286",
+          "_id": "c76c1727-dca5-4dcf-90b2-9794d2dc2ea5",
           "name": "Zucchero Semolato",
           "quantity": 20.0,
           "unit": "kg",
@@ -327,7 +377,7 @@
           "cost_per_unit": 1.5
         },
         {
-          "_id": "4ebfb9ea-3b93-489d-88da-0c001a1b813e",
+          "_id": "733c4c3d-10a9-43aa-9a54-f7ca8bde79b3",
           "name": "Cioccolato Fondente",
           "quantity": 10.0,
           "unit": "kg",
@@ -335,7 +385,7 @@
           "cost_per_unit": 12.0
         },
         {
-          "_id": "a7699322-1b68-4ce7-bf52-0213b7772e09",
+          "_id": "0139129e-ef2a-4dcb-af9d-af65b26a51ef",
           "name": "Burro",
           "quantity": 15.0,
           "unit": "kg",
@@ -343,7 +393,7 @@
           "cost_per_unit": 8.0
         },
         {
-          "_id": "fb25e3d6-f403-473e-8fea-8521bb678453",
+          "_id": "643e6ebc-70d3-48e8-ab58-f09b6013f5cc",
           "name": "Uova",
           "quantity": 200.0,
           "unit": "pz",
@@ -362,7 +412,7 @@
       "success": true,
       "response_data": [
         {
-          "_id": "c4b0c61d-7f30-4153-af60-dbf9e0136a35",
+          "_id": "df473b97-fee5-499a-b4a8-29eea5294694",
           "name": "Torta Sacher",
           "description": "Classica torta viennese al cioccolato",
           "price": 35.0,
@@ -370,7 +420,7 @@
           "recipe": {}
         },
         {
-          "_id": "9f5ca915-2578-4350-add5-83cb9dc9a5a9",
+          "_id": "03e56507-9fbf-4ffc-a1ee-2b4e687f0e11",
           "name": "Croissant Vuoto",
           "description": "Sfoglia burrosa e fragrante",
           "price": 1.5,
@@ -378,7 +428,7 @@
           "recipe": {}
         },
         {
-          "_id": "e0c7c6e1-a290-4001-bded-56a28f65e594",
+          "_id": "6b2f86a1-12f2-47f7-90b3-66e579be66e9",
           "name": "Bign\u00e8 Crema",
           "description": "Pasta choux ripiena di crema pasticcera",
           "price": 1.8,
