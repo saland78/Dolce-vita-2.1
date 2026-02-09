@@ -1,11 +1,18 @@
 import axios from 'axios';
 
-const backendUrl = process.env.REACT_APP_BACKEND_URL || "https://sweettrack-4.preview.emergentagent.com";
+// FORCE HTTPS URL
+const backendUrl = "https://sweettrack-4.preview.emergentagent.com";
 
-console.log("Backend URL detected:", backendUrl); // Debug log
+console.log("Using Backend URL:", backendUrl);
 
 const api = axios.create({
   baseURL: backendUrl,
+});
+
+// Add interceptor to debug requests
+api.interceptors.request.use(request => {
+  console.log('Starting Request', request.url, request.baseURL);
+  return request;
 });
 
 export const getStats = async () => (await api.get('/api/orders/stats')).data;
