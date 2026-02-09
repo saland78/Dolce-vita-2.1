@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+console.log('REACT_APP_BACKEND_URL:', process.env.REACT_APP_BACKEND_URL);
+const baseURL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
+console.log('Using baseURL:', baseURL);
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_BACKEND_URL || "http://localhost:8001",
+  baseURL: baseURL,
 });
 
 export const getStats = async () => (await api.get('/api/orders/stats')).data;
