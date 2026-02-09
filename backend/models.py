@@ -15,13 +15,15 @@ class UserRole(str, Enum):
     ADMIN = "admin"
     BAKER = "baker"
     SALES = "sales"
+    CUSTOMER = "customer"
 
 class User(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
-    username: str
-    password_hash: str
-    role: UserRole
-    full_name: str
+    user_id: str = Field(default_factory=lambda: f"user_{uuid.uuid4().hex[:12]}")
+    email: str
+    name: str
+    picture: Optional[str] = None
+    role: UserRole = UserRole.ADMIN
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class Ingredient(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
@@ -37,8 +39,7 @@ class Product(BaseModel):
     description: str
     price: float
     category: str
-    # Simplified recipe: dict of ingredient_id -> quantity_required
-    recipe: Dict[str, float] = {} 
+    image_url: Optional[str] = None
 
 class OrderItem(BaseModel):
     product_id: str
@@ -50,7 +51,7 @@ class Order(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     customer_name: str
     customer_email: Optional[str] = None
-    source: str = "woocommerce"  # or "manual"
+    source: str = "woocommerce"
     items: List[OrderItem]
     total_amount: float
     status: OrderStatus = OrderStatus.RECEIVED
@@ -63,13 +64,3 @@ class OrderCreate(BaseModel):
     customer_email: Optional[str] = None
     items: List[OrderItem]
     notes: Optional[str] = None
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    role: str
-    username: str

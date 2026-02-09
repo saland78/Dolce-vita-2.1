@@ -4,7 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 import os
 import logging
 from pathlib import Path
-from routes import orders, inventory
+from routes import orders, inventory, auth_routes
 from database import client
 
 ROOT_DIR = Path(__file__).parent
@@ -15,27 +15,23 @@ app = FastAPI(title="BakeryOS API")
 # Setup CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
+    allow_credentials=True, # CRITICAL FOR COOKIES
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Middleware to handle HTTPS behind proxy correctly (since we can't edit supervisord)
 @app.middleware("http")
 async def fix_proxy_headers(request: Request, call_next):
-    # Trust X-Forwarded-Proto if present
     forwarded_proto = request.headers.get("x-forwarded-proto")
     if forwarded_proto:
         request.scope["scheme"] = forwarded_proto
     return await call_next(request)
 
-# API Router
 api_router = APIRouter(prefix="/api")
-
-# Include Sub-routers
 api_router.include_router(orders.router)
 api_router.include_router(inventory.router)
+api_router.include_router(auth_routes.router)
 
 @api_router.get("/")
 async def root():
@@ -43,7 +39,6 @@ async def root():
 
 app.include_router(api_router)
 
-# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

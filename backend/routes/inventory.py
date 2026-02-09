@@ -6,7 +6,7 @@ from database import get_db
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
-# --- Ingredients ---
+# --- Ingredients (Materie Prime) ---
 @router.get("/ingredients", response_model=List[Ingredient])
 async def get_ingredients(db: AsyncIOMotorDatabase = Depends(get_db)):
     return await db.ingredients.find({}, {"_id": 0}).to_list(100)
@@ -16,20 +16,7 @@ async def create_ingredient(ing: Ingredient, db: AsyncIOMotorDatabase = Depends(
     await db.ingredients.insert_one(ing.model_dump(by_alias=True))
     return ing
 
-@router.put("/ingredients/{ing_id}", response_model=Ingredient)
-async def update_ingredient(ing_id: str, ing_update: dict, db: AsyncIOMotorDatabase = Depends(get_db)):
-    # Removing _id from update if present to avoid immutability error
-    if "_id" in ing_update:
-        del ing_update["_id"]
-        
-    result = await db.ingredients.find_one_and_update(
-        {"_id": ing_id},
-        {"$set": ing_update},
-        return_document=True
-    )
-    return result
-
-# --- Products ---
+# --- Products (Prodotti Finiti) ---
 @router.get("/products", response_model=List[Product])
 async def get_products(db: AsyncIOMotorDatabase = Depends(get_db)):
     return await db.products.find({}, {"_id": 0}).to_list(100)
@@ -39,9 +26,29 @@ async def create_product(prod: Product, db: AsyncIOMotorDatabase = Depends(get_d
     await db.products.insert_one(prod.model_dump(by_alias=True))
     return prod
 
+@router.get("/products/{product_id}/orders")
+async def get_product_orders(product_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+    """
+    Returns list of customers who ordered this product.
+    """
+    pipeline = [
+        {"$unwind": "$items"},
+        {"$match": {"items.product_id": product_id}},
+        {"$project": {
+            "customer_name": 1,
+            "customer_email": 1,
+            "quantity": "$items.quantity",
+            "created_at": 1,
+            "_id": 0
+        }},
+        {"$sort": {"created_at": -1}}
+    ]
+    
+    results = await db.orders.aggregate(pipeline).to_list(100)
+    return results
+
 @router.post("/seed")
 async def seed_inventory(db: AsyncIOMotorDatabase = Depends(get_db)):
-    """Seeds some basic ingredients and products"""
     if await db.ingredients.count_documents({}) > 0:
         return {"message": "Already seeded"}
         
@@ -57,12 +64,15 @@ async def seed_inventory(db: AsyncIOMotorDatabase = Depends(get_db)):
         await db.ingredients.insert_one(i.model_dump(by_alias=True))
         
     products = [
-        Product(name="Torta Sacher", description="Classica torta viennese al cioccolato", price=35.0, category="Torte"),
-        Product(name="Croissant Vuoto", description="Sfoglia burrosa e fragrante", price=1.5, category="Colazione"),
-        Product(name="Bignè Crema", description="Pasta choux ripiena di crema pasticcera", price=1.8, category="Mignon"),
+        Product(id="p1", name="Torta Sacher", description="Classica torta viennese al cioccolato", price=35.0, category="Torte", image_url="https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&q=80&w=400"),
+        Product(id="p2", name="Croissant Vuoto", description="Sfoglia burrosa e fragrante", price=1.5, category="Colazione", image_url="https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=400"),
+        Product(id="p3", name="Bignè Crema", description="Pasta choux ripiena di crema pasticcera", price=1.8, category="Mignon", image_url="https://images.unsplash.com/photo-1559599525-27a94f6c483a?auto=format&fit=crop&q=80&w=400"),
     ]
     
     for p in products:
-        await db.products.insert_one(p.model_dump(by_alias=True))
+        try:
+            await db.products.insert_one(p.model_dump(by_alias=True))
+        except:
+            pass # duplicate key ignore
         
     return {"message": "Seeded successfully"}
