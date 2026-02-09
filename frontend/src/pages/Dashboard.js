@@ -75,7 +75,7 @@ const Dashboard = () => {
                 <StatCard 
                     title="In Produzione" 
                     value={stats?.production || 0} 
-                    icon={ChefHat => <ChefHat />} 
+                    icon={ChefHat} 
                     color="bg-orange-100 text-orange-600" 
                 />
                  <StatCard 
