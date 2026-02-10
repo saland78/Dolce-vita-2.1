@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, ShoppingBag, Box, Settings, ChefHat, LogOut, PlusCircle, CakeSlice, Users } from 'lucide-react';
-import { simulateOrder, logout } from '../api/api';
+import { logout } from '../api/api';
 import { toast } from 'sonner';
 
 const SidebarItem = ({ icon: Icon, label, to, active }) => (
@@ -21,19 +21,6 @@ const SidebarItem = ({ icon: Icon, label, to, active }) => (
 const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [simulating, setSimulating] = useState(false);
-
-  const handleSimulate = async () => {
-    setSimulating(true);
-    try {
-      await simulateOrder();
-      toast.success("Nuovo ordine ricevuto da WooCommerce!");
-    } catch (e) {
-      toast.error("Errore nella simulazione");
-    } finally {
-      setSimulating(false);
-    }
-  };
 
   const handleLogout = async () => {
       try {
@@ -69,14 +56,6 @@ const Layout = ({ children }) => {
         </nav>
 
         <div className="pt-6 border-t border-border space-y-4">
-             <button 
-                onClick={handleSimulate}
-                disabled={simulating}
-                className="w-full flex items-center justify-center gap-2 bg-accent text-white py-2 px-4 rounded-full text-sm font-medium hover:bg-accent/90 transition-all shadow-md active:scale-95"
-            >
-                <PlusCircle size={16} />
-                {simulating ? "Simulazione..." : "Simula WP"}
-            </button>
             <div className="flex items-center gap-3 px-4 py-2">
                 <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-primary font-bold">A</div>
                 <div className="flex-1">

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { getStats, getOrders } from '../api/api';
+import { getStats, getOrders, getSalesHistory } from '../api/api';
 import { ArrowUpRight, Clock, CheckCircle, Truck, Package, ChefHat } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -25,13 +25,19 @@ const StatCard = ({ title, value, icon: Icon, color, isCurrency }) => (
 const Dashboard = () => {
     const [stats, setStats] = useState(null);
     const [recentOrders, setRecentOrders] = useState([]);
+    const [chartData, setChartData] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const fetchData = async () => {
         try {
-            const [statsData, ordersData] = await Promise.all([getStats(), getOrders()]);
+            const [statsData, ordersData, historyData] = await Promise.all([
+                getStats(), 
+                getOrders(),
+                getSalesHistory()
+            ]);
             setStats(statsData);
             setRecentOrders(ordersData.slice(0, 5));
+            setChartData(historyData);
         } catch (error) {
             console.error("Failed to fetch dashboard data", error);
         } finally {
@@ -41,20 +47,9 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 5000); // Polling every 5s
+        const interval = setInterval(fetchData, 10000); // Polling every 10s
         return () => clearInterval(interval);
     }, []);
-
-    // Mock chart data
-    const chartData = [
-        { name: 'Lun', sales: 400 },
-        { name: 'Mar', sales: 300 },
-        { name: 'Mer', sales: 200 },
-        { name: 'Gio', sales: 278 },
-        { name: 'Ven', sales: 189 },
-        { name: 'Sab', sales: 639 },
-        { name: 'Dom', sales: 349 },
-    ];
 
     if (loading) return <div className="flex h-screen items-center justify-center text-primary font-serif">Caricamento Pasticceria...</div>;
 
@@ -96,7 +91,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Chart Section */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-border shadow-sm">
-                    <h3 className="font-serif text-xl mb-6 text-primary">Andamento Vendite</h3>
+                    <h3 className="font-serif text-xl mb-6 text-primary">Andamento Vendite (7 Giorni)</h3>
                     <div className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData}>
@@ -106,6 +101,7 @@ const Dashboard = () => {
                                 <Tooltip 
                                     contentStyle={{backgroundColor: '#FFF', borderRadius: '12px', border: '1px solid #E6DCC8', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}} 
                                     itemStyle={{color: '#3E2723'}}
+                                    formatter={(value) => formatCurrency(value)}
                                 />
                                 <Bar dataKey="sales" fill="#C5A059" radius={[4, 4, 0, 0]} />
                             </BarChart>
