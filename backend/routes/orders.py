@@ -64,8 +64,12 @@ async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
     production = await db.orders.count_documents({"status": "in_production"})
     completed = await db.orders.count_documents({"status": "ready"})
     
+    # Revenue today - ONLY FOR DELIVERED (Completed) ORDERS
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    cursor = db.orders.find({"created_at": {"$gte": today_start}})
+    cursor = db.orders.find({
+        "created_at": {"$gte": today_start},
+        "status": OrderStatus.DELIVERED
+    })
     today_revenue = 0
     async for doc in cursor:
         today_revenue += doc.get("total_amount", 0)
@@ -82,11 +86,17 @@ async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
 async def get_sales_history(days: int = 7, db: AsyncIOMotorDatabase = Depends(get_db)):
     """
     Returns aggregated daily sales for the chart.
+    ONLY counts orders that are DELIVERED (Completed).
     """
     start_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     pipeline = [
-        {"$match": {"created_at": {"$gte": start_date}}},
+        {
+            "$match": {
+                "created_at": {"$gte": start_date},
+                "status": OrderStatus.DELIVERED
+            }
+        },
         {"$group": {
             "_id": {
                 "year": {"$year": "$created_at"},
@@ -118,8 +128,3 @@ async def get_sales_history(days: int = 7, db: AsyncIOMotorDatabase = Depends(ge
         })
         
     return formatted
-
-# Removed the /simulate endpoint as requested (or commented out effectively)
-# Keeping the function logic but not exposing it in the UI is safer, 
-# but user asked to remove the button. I'll keep the endpoint for backend tests if needed, 
-# but I won't use it in frontend.
