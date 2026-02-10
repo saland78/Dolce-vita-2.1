@@ -11,14 +11,22 @@ class CustomerSummary(BaseModel):
     email: Optional[str] = None
     total_spent: float
     last_order_date: Optional[str] = None
+    orders_count: Optional[int] = 0
     source: str = "woocommerce"
 
 @router.get("/", response_model=List[CustomerSummary])
 async def get_customers(db: AsyncIOMotorDatabase = Depends(get_db)):
     """
-    Aggregates customers from Orders to show a list of people who have purchased.
-    In the future, this will sync directly from the 'users' table or WooCommerce Customers API.
+    Returns customers from the 'customers' collection (synced from WC).
     """
+    # 1. Fetch synced customers
+    synced_customers = await db.customers.find({}).sort("total_spent", -1).to_list(100)
+    
+    # If we have synced customers, return them
+    if synced_customers:
+        return synced_customers
+
+    # Fallback: Aggregate from Orders (for legacy or Manual orders)
     pipeline = [
         {"$group": {
             "_id": "$customer_email",
@@ -26,6 +34,7 @@ async def get_customers(db: AsyncIOMotorDatabase = Depends(get_db)):
             "email": {"$first": "$customer_email"},
             "total_spent": {"$sum": "$total_amount"},
             "last_order_date": {"$max": "$created_at"},
+            "orders_count": {"$sum": 1},
             "source": {"$first": "$source"}
         }},
         {"$sort": {"last_order_date": -1}},
@@ -35,6 +44,7 @@ async def get_customers(db: AsyncIOMotorDatabase = Depends(get_db)):
             "email": 1,
             "total_spent": 1,
             "last_order_date": 1,
+            "orders_count": 1,
             "source": 1
         }}
     ]

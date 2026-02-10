@@ -3,7 +3,7 @@ import logging
 import os
 from database import db
 from woocommerce import API
-from models import Product, Order, OrderItem, OrderStatus
+from models import Product, Order, OrderStatus
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -26,40 +26,53 @@ def get_wc_api():
 
 async def sync_products(wcapi):
     try:
-        response = wcapi.get("products", params={"per_page": 100})
-        if response.status_code != 200:
-            logger.error(f"WC Products Sync Failed: {response.text}")
-            return
-            
-        products = response.json()
-        count = 0
-        for p in products:
-            # Check if exists
-            existing = await db.products.find_one({"_id": str(p["id"])})
-            
-            prod_data = {
-                "name": p["name"],
-                "description": p["short_description"] or p["description"], # HTML stripped ideally
-                "price": float(p["price"] or 0),
-                "category": p["categories"][0]["name"] if p["categories"] else "General",
-                "image_url": p["images"][0]["src"] if p["images"] else None
-            }
-            
-            if existing:
-                await db.products.update_one({"_id": str(p["id"])}, {"$set": prod_data})
-            else:
-                prod_data["_id"] = str(p["id"]) # Use WC ID as DB ID for sync
-                await db.products.insert_one(prod_data)
-                count += 1
+        # Fetch all products
+        page = 1
+        while True:
+            response = wcapi.get("products", params={"per_page": 100, "page": page})
+            if response.status_code != 200:
+                logger.error(f"WC Products Sync Failed: {response.text}")
+                break
                 
-        logger.info(f"Synced {len(products)} products. New: {count}")
+            products = response.json()
+            if not products:
+                break
+                
+            count = 0
+            for p in products:
+                # Use WC ID as _id
+                wc_id = str(p["id"])
+                
+                prod_data = {
+                    "name": p["name"],
+                    "description": p["short_description"] or p["description"],
+                    "price": float(p["price"] or 0),
+                    "category": p["categories"][0]["name"] if p["categories"] else "General",
+                    "image_url": p["images"][0]["src"] if p["images"] else None,
+                    "sku": p.get("sku"),
+                    "stock_status": p.get("stock_status"),
+                    "source": "woocommerce",
+                    "updated_at": datetime.now(timezone.utc)
+                }
+                
+                # Upsert
+                await db.products.update_one(
+                    {"_id": wc_id},
+                    {"$set": prod_data},
+                    upsert=True
+                )
+                count += 1
+            
+            logger.info(f"Synced page {page} of products ({len(products)} items)")
+            page += 1
+            
     except Exception as e:
         logger.error(f"Error syncing products: {e}")
 
 async def sync_orders(wcapi):
     try:
-        # Fetch orders modified recently? For MVP just fetch last 20
-        response = wcapi.get("orders", params={"per_page": 20})
+        # Fetch recent orders
+        response = wcapi.get("orders", params={"per_page": 50})
         if response.status_code != 200:
             logger.error(f"WC Orders Sync Failed: {response.text}")
             return
@@ -67,16 +80,9 @@ async def sync_orders(wcapi):
         orders = response.json()
         count = 0
         for o in orders:
-            # We map WC status to our internal status
-            # pending, processing, on-hold, completed, cancelled, refunded, failed
+            wc_id = str(o["id"])
             
-            # Skip if exists
-            existing = await db.orders.find_one({"_id": str(o["id"])})
-            if existing:
-                # Update status if changed remotely?
-                # For now, let's assume local status takes precedence or we only import new ones
-                continue
-
+            # Map items
             items = []
             for item in o["line_items"]:
                 items.append({
@@ -89,12 +95,14 @@ async def sync_orders(wcapi):
             status_map = {
                 "processing": OrderStatus.RECEIVED,
                 "pending": OrderStatus.RECEIVED,
+                "on-hold": OrderStatus.RECEIVED,
                 "completed": OrderStatus.DELIVERED,
-                "cancelled": OrderStatus.CANCELLED
+                "cancelled": OrderStatus.CANCELLED,
+                "refunded": OrderStatus.CANCELLED,
+                "failed": OrderStatus.CANCELLED
             }
             
-            new_order = {
-                "_id": str(o["id"]),
+            order_data = {
                 "customer_name": f"{o['billing']['first_name']} {o['billing']['last_name']}",
                 "customer_email": o["billing"]["email"],
                 "source": "woocommerce",
@@ -106,11 +114,17 @@ async def sync_orders(wcapi):
                 "notes": o.get("customer_note", "")
             }
             
-            await db.orders.insert_one(new_order)
+            # Only insert if not exists (or update status?)
+            # For robust sync, we update status
+            await db.orders.update_one(
+                {"_id": wc_id},
+                {"$set": order_data},
+                upsert=True
+            )
             count += 1
             
         if count > 0:
-            logger.info(f"Synced {count} new orders from WooCommerce")
+            logger.info(f"Synced {count} orders from WooCommerce")
             
     except Exception as e:
         logger.error(f"Error syncing orders: {e}")
@@ -119,13 +133,34 @@ async def sync_customers(wcapi):
     try:
         response = wcapi.get("customers", params={"per_page": 50})
         if response.status_code != 200:
+            logger.error(f"WC Customers Sync Failed: {response.text}")
             return
 
         customers = response.json()
+        count = 0
         for c in customers:
-            # Sync to users collection?
-            # Or just rely on the aggregation endpoint
-            pass
+            wc_id = str(c["id"])
+            
+            cust_data = {
+                "name": f"{c['first_name']} {c['last_name']}".strip() or c['username'],
+                "email": c['email'],
+                "total_spent": float(c.get('total_spent', 0)),
+                "orders_count": c.get('orders_count', 0),
+                "last_order_date": c.get('date_last_active_gmt'), # This might vary by WC version
+                "source": "woocommerce",
+                "avatar_url": c.get('avatar_url'),
+                "updated_at": datetime.now(timezone.utc)
+            }
+            
+            await db.customers.update_one(
+                {"_id": wc_id},
+                {"$set": cust_data},
+                upsert=True
+            )
+            count += 1
+            
+        if count > 0:
+            logger.info(f"Synced {count} customers from WooCommerce")
             
     except Exception as e:
         logger.error(f"Error syncing customers: {e}")
