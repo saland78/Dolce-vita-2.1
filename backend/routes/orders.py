@@ -9,8 +9,12 @@ from services.email_service import EmailService
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 @router.get("/", response_model=List[Order])
-async def get_orders(status: str = None, db: AsyncIOMotorDatabase = Depends(get_db)):
-    query = {}
+async def get_orders(
+    status: str = None, 
+    archived: bool = False, # Default to showing active orders only
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    query = {"archived": archived}
     if status:
         query["status"] = status
     orders = await db.orders.find(query).sort("created_at", -1).to_list(100)
@@ -57,6 +61,17 @@ async def update_status(order_id: str, status: OrderStatus, db: AsyncIOMotorData
 
     return result
 
+@router.put("/{order_id}/archive", response_model=Order)
+async def archive_order(order_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+    result = await db.orders.find_one_and_update(
+        {"_id": order_id},
+        {"$set": {"archived": True}},
+        return_document=True
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return result
+
 @router.get("/stats")
 async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
     total_orders = await db.orders.count_documents({})
@@ -64,7 +79,7 @@ async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
     production = await db.orders.count_documents({"status": "in_production"})
     completed = await db.orders.count_documents({"status": "ready"})
     
-    # REVENUE FIX: Sum of all NON-CANCELLED orders created today (Sales View)
+    # REVENUE FIX: Sum of all NON-CANCELLED orders created today
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     
     pipeline = [
@@ -95,10 +110,6 @@ async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
 
 @router.get("/sales-history")
 async def get_sales_history(time_range: str = Query("7d", alias="range"), db: AsyncIOMotorDatabase = Depends(get_db)):
-    """
-    Returns aggregated sales for the chart.
-    Counts ALL non-cancelled orders by CREATION date.
-    """
     now = datetime.now(timezone.utc)
     
     if time_range == "today":
@@ -157,7 +168,6 @@ async def get_sales_history(time_range: str = Query("7d", alias="range"), db: As
              formatted.append({"name": label, "sales": d['sales']})
 
     if time_range == "today":
-        # Use built-in range function safely now
         for h in range(24):
             key = str(h)
             formatted.append({

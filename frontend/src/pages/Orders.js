@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { getOrders, updateOrderStatus } from '../api/api';
+import { getOrders, updateOrderStatus, archiveOrder } from '../api/api';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { Archive, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 
-const OrderCard = ({ order, onUpdateStatus }) => {
+const OrderCard = ({ order, onUpdateStatus, onArchive }) => {
     const statusColors = {
         received: 'border-yellow-400 bg-yellow-50/50',
         in_production: 'border-orange-400 bg-orange-50/50',
-        ready: 'border-blue-400 bg-blue-50/50', // Ready for Pickup
-        delivered: 'border-green-400 bg-green-50/50', // Completed
+        ready: 'border-blue-400 bg-blue-50/50', 
+        delivered: 'border-green-400 bg-green-50/50', 
     };
 
     return (
@@ -31,7 +33,6 @@ const OrderCard = ({ order, onUpdateStatus }) => {
             </div>
 
             <div className="flex gap-2 mt-2">
-                {/* Workflow: Received -> In Production -> Ready -> Delivered */}
                 {order.status === 'received' && (
                     <button 
                         onClick={() => onUpdateStatus(order._id, 'in_production')}
@@ -57,8 +58,19 @@ const OrderCard = ({ order, onUpdateStatus }) => {
                     </button>
                 )}
                 {order.status === 'delivered' && (
-                    <div className="w-full text-center text-xs font-bold text-green-700 bg-green-100 py-1.5 rounded-lg">
-                        COMPLETATO
+                    <div className="flex gap-2 w-full">
+                        <div className="flex-1 text-center text-xs font-bold text-green-700 bg-green-100 py-1.5 rounded-lg flex items-center justify-center gap-1">
+                            COMPLETATO
+                        </div>
+                        {onArchive && (
+                            <button 
+                                onClick={() => onArchive(order._id)}
+                                title="Archivia ordine"
+                                className="px-2 rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300"
+                            >
+                                <Archive size={14} />
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -66,7 +78,7 @@ const OrderCard = ({ order, onUpdateStatus }) => {
     );
 };
 
-const KanbanColumn = ({ title, status, orders, onUpdateStatus }) => (
+const KanbanColumn = ({ title, orders, onUpdateStatus, onArchive }) => (
     <div className="flex-1 min-w-[300px] bg-muted/30 p-4 rounded-2xl">
         <h3 className="font-serif font-bold text-lg mb-4 text-primary flex items-center justify-between">
             {title}
@@ -74,11 +86,11 @@ const KanbanColumn = ({ title, status, orders, onUpdateStatus }) => (
         </h3>
         <div className="space-y-3">
             {orders.map(order => (
-                <OrderCard key={order._id} order={order} onUpdateStatus={onUpdateStatus} />
+                <OrderCard key={order._id} order={order} onUpdateStatus={onUpdateStatus} onArchive={onArchive} />
             ))}
             {orders.length === 0 && (
                 <div className="h-20 border-2 border-dashed border-border rounded-xl flex items-center justify-center text-muted-foreground text-sm">
-                    Nessun ordine
+                    Vuoto
                 </div>
             )}
         </div>
@@ -87,56 +99,102 @@ const KanbanColumn = ({ title, status, orders, onUpdateStatus }) => (
 
 const Orders = () => {
     const [orders, setOrders] = useState([]);
+    const [showArchived, setShowArchived] = useState(false);
 
     const fetchOrders = async () => {
-        const data = await getOrders();
-        setOrders(data);
+        try {
+            const data = await getOrders(null, showArchived);
+            setOrders(data);
+        } catch (e) {
+            console.error("Error fetching orders", e);
+        }
     };
 
     useEffect(() => {
         fetchOrders();
         const interval = setInterval(fetchOrders, 5000); 
         return () => clearInterval(interval);
-    }, []);
+    }, [showArchived]); // Refresh when toggling archive
 
     const handleUpdateStatus = async (id, status) => {
         await updateOrderStatus(id, status);
         fetchOrders();
     };
 
+    const handleArchive = async (id) => {
+        await archiveOrder(id);
+        toast.success("Ordine archiviato");
+        fetchOrders();
+    };
+
     return (
         <Layout>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-serif text-primary">Gestione Ordini</h1>
-                <div className="text-sm text-muted-foreground">Syncing: 5s</div>
+                <h1 className="text-3xl font-serif text-primary">
+                    {showArchived ? "Archivio Ordini" : "Gestione Ordini"}
+                </h1>
+                
+                <div className="flex items-center gap-4">
+                    <div className="text-sm text-muted-foreground">Sync: 5s</div>
+                    <button 
+                        onClick={() => setShowArchived(!showArchived)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                            showArchived 
+                            ? 'bg-primary text-white' 
+                            : 'bg-white border border-border text-gray-600 hover:bg-gray-50'
+                        }`}
+                    >
+                        {showArchived ? <RotateCcw size={16} /> : <Archive size={16} />}
+                        {showArchived ? "Torna a Lavagna" : "Vedi Archivio"}
+                    </button>
+                </div>
             </div>
 
-            <div className="flex gap-6 overflow-x-auto pb-6">
-                <KanbanColumn 
-                    title="Ricevuti" 
-                    status="received" 
-                    orders={orders.filter(o => o.status === 'received')} 
-                    onUpdateStatus={handleUpdateStatus} 
-                />
-                <KanbanColumn 
-                    title="In Produzione" 
-                    status="in_production" 
-                    orders={orders.filter(o => o.status === 'in_production')} 
-                    onUpdateStatus={handleUpdateStatus} 
-                />
-                <KanbanColumn 
-                    title="Pronti" 
-                    status="ready" 
-                    orders={orders.filter(o => o.status === 'ready')} 
-                    onUpdateStatus={handleUpdateStatus} 
-                />
-                <KanbanColumn 
-                    title="Completati" 
-                    status="delivered" 
-                    orders={orders.filter(o => o.status === 'delivered')} 
-                    onUpdateStatus={handleUpdateStatus} 
-                />
-            </div>
+            {showArchived ? (
+                // Archive View (Simple List)
+                <div className="space-y-4">
+                    {orders.map(order => (
+                        <div key={order._id} className="bg-white p-4 rounded-xl border border-border shadow-sm flex justify-between items-center opacity-75">
+                            <div>
+                                <h4 className="font-bold text-primary">{order.customer_name}</h4>
+                                <p className="text-xs text-muted-foreground">{format(new Date(order.created_at), "d MMM yyyy", { locale: it })} • {order.items.length} articoli</p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <span className="font-serif font-bold text-accent">€{order.total_amount}</span>
+                                <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs uppercase font-bold">
+                                    {order.status}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                    {orders.length === 0 && <p className="text-center text-muted-foreground py-10">Archivio vuoto</p>}
+                </div>
+            ) : (
+                // Kanban View
+                <div className="flex gap-6 overflow-x-auto pb-6">
+                    <KanbanColumn 
+                        title="Ricevuti" 
+                        orders={orders.filter(o => o.status === 'received')} 
+                        onUpdateStatus={handleUpdateStatus} 
+                    />
+                    <KanbanColumn 
+                        title="In Produzione" 
+                        orders={orders.filter(o => o.status === 'in_production')} 
+                        onUpdateStatus={handleUpdateStatus} 
+                    />
+                    <KanbanColumn 
+                        title="Pronti" 
+                        orders={orders.filter(o => o.status === 'ready')} 
+                        onUpdateStatus={handleUpdateStatus} 
+                    />
+                    <KanbanColumn 
+                        title="Completati" 
+                        orders={orders.filter(o => o.status === 'delivered')} 
+                        onUpdateStatus={handleUpdateStatus} 
+                        onArchive={handleArchive}
+                    />
+                </div>
+            )}
         </Layout>
     );
 };

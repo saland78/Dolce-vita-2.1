@@ -16,8 +16,10 @@ export const logout = async () => (await api.post('/api/auth/logout')).data;
 // Orders
 export const getStats = async () => (await api.get('/api/orders/stats')).data;
 export const getSalesHistory = async (range) => (await api.get(`/api/orders/sales-history?range=${range || '7d'}`)).data;
-export const getOrders = async (status) => (await api.get(`/api/orders/${status ? `?status=${status}` : ''}`)).data;
+// Added archived param default false
+export const getOrders = async (status, archived = false) => (await api.get(`/api/orders/?archived=${archived}${status ? `&status=${status}` : ''}`)).data;
 export const updateOrderStatus = async (id, status) => (await api.put(`/api/orders/${id}/status?status=${status}`)).data;
+export const archiveOrder = async (id) => (await api.put(`/api/orders/${id}/archive`)).data; // NEW
 export const simulateOrder = async () => (await api.post('/api/orders/simulate')).data;
 export const getProductionPlan = async (date) => (await api.get('/api/orders/production-plan')).data;
 

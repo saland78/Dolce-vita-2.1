@@ -58,7 +58,8 @@ class Order(BaseModel):
     items: List[OrderItem]
     total_amount: float
     status: OrderStatus = OrderStatus.RECEIVED
-    payment_status: str = "unpaid" # NEW field
+    payment_status: str = "unpaid"
+    archived: bool = False  # NEW FIELD for Archiving
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     notes: Optional[str] = None

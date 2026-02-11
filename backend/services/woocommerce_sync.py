@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 def clean_html(raw_html):
     if not raw_html:
         return ""
-    # Use BS4 for robust stripping
     try:
         soup = BeautifulSoup(raw_html, "html.parser")
         text = soup.get_text(separator=" ")
@@ -52,8 +51,6 @@ async def sync_products(wcapi):
                 
             for p in products:
                 wc_id = str(p["id"])
-                
-                # CLEAN HTML HERE
                 description = clean_html(p["short_description"] or p["description"])
                 
                 prod_data = {
@@ -68,6 +65,7 @@ async def sync_products(wcapi):
                     "updated_at": datetime.now(timezone.utc)
                 }
                 
+                # IMPORTANT: Do not overwrite the ID, Pydantic needs correct mapping
                 await db.products.update_one(
                     {"_id": wc_id},
                     {"$set": prod_data},
@@ -92,6 +90,9 @@ async def sync_orders(wcapi):
         for o in orders:
             wc_id = str(o["id"])
             
+            # Check existing order to preserve LOCAL status
+            existing_order = await db.orders.find_one({"_id": wc_id})
+            
             items = []
             for item in o["line_items"]:
                 items.append({
@@ -101,7 +102,6 @@ async def sync_orders(wcapi):
                     "unit_price": float(item["price"] or 0)
                 })
 
-            # Map WC status to internal
             status_map = {
                 "processing": OrderStatus.RECEIVED, 
                 "pending": OrderStatus.RECEIVED,
@@ -111,6 +111,17 @@ async def sync_orders(wcapi):
                 "refunded": OrderStatus.CANCELLED,
                 "failed": OrderStatus.CANCELLED
             }
+            
+            wc_status_mapped = status_map.get(o["status"], OrderStatus.RECEIVED)
+            final_status = wc_status_mapped
+
+            # CRITICAL FIX: Don't revert local progress
+            if existing_order:
+                local_status = existing_order.get("status")
+                # If local is "In Production" or "Ready" and WC says "Received" (Processing), keep Local.
+                # Only update if WC forces a Cancel or Completion explicitly.
+                if local_status in [OrderStatus.IN_PRODUCTION, OrderStatus.READY] and wc_status_mapped == OrderStatus.RECEIVED:
+                    final_status = local_status
             
             # Determine payment status
             payment_status = "unpaid"
@@ -123,11 +134,11 @@ async def sync_orders(wcapi):
                 "source": "woocommerce",
                 "items": items,
                 "total_amount": float(o["total"]),
-                "status": status_map.get(o["status"], OrderStatus.RECEIVED),
-                "payment_status": payment_status, # Added field
+                "status": final_status,
+                "payment_status": payment_status, 
                 "created_at": datetime.fromisoformat(o["date_created_gmt"]).replace(tzinfo=timezone.utc),
                 "updated_at": datetime.now(timezone.utc),
-                "notes": clean_html(o.get("customer_note", "")) # Clean notes too
+                "notes": clean_html(o.get("customer_note", ""))
             }
             
             await db.orders.update_one(
@@ -143,7 +154,6 @@ async def sync_orders(wcapi):
     except Exception as e:
         logger.error(f"Error syncing orders: {e}")
 
-# ... (sync_customers and loop remain same) ...
 async def sync_customers(wcapi):
     try:
         response = wcapi.get("customers", params={"per_page": 50})
