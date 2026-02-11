@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { getStats, getOrders, getSalesHistory } from '../api/api';
-import { ArrowUpRight, Clock, CheckCircle, Truck, Package, ChefHat } from 'lucide-react';
+import { ArrowUpRight, Clock, CheckCircle, Truck, Package, ChefHat, Calendar } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const formatCurrency = (value) => {
@@ -27,13 +27,14 @@ const Dashboard = () => {
     const [recentOrders, setRecentOrders] = useState([]);
     const [chartData, setChartData] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [range, setRange] = useState("7d");
 
     const fetchData = async () => {
         try {
             const [statsData, ordersData, historyData] = await Promise.all([
                 getStats(), 
                 getOrders(),
-                getSalesHistory()
+                getSalesHistory(range)
             ]);
             setStats(statsData);
             setRecentOrders(ordersData.slice(0, 5));
@@ -47,17 +48,41 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 10000); // Polling every 10s
+        const interval = setInterval(fetchData, 10000); 
         return () => clearInterval(interval);
-    }, []);
+    }, [range]); // Refetch when range changes
 
     if (loading) return <div className="flex h-screen items-center justify-center text-primary font-serif">Caricamento Pasticceria...</div>;
 
     return (
         <Layout>
-            <div className="mb-8">
-                <h1 className="text-4xl font-serif text-primary mb-2">Buongiorno, Chef.</h1>
-                <p className="text-muted-foreground">Ecco la situazione della pasticceria oggi.</p>
+            <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 className="text-4xl font-serif text-primary mb-2">Buongiorno, Chef.</h1>
+                    <p className="text-muted-foreground">Ecco la situazione della pasticceria oggi.</p>
+                </div>
+                <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-border">
+                     {/* Range Selector */}
+                     {[
+                        { label: 'Oggi', value: 'today' },
+                        { label: '7 Giorni', value: '7d' },
+                        { label: 'Mese', value: '30d' },
+                        { label: '6 Mesi', value: '6m' },
+                        { label: 'Anno', value: '1y' }
+                     ].map(opt => (
+                        <button
+                            key={opt.value}
+                            onClick={() => setRange(opt.value)}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                                range === opt.value 
+                                ? 'bg-primary text-white shadow-sm' 
+                                : 'text-muted-foreground hover:bg-muted'
+                            }`}
+                        >
+                            {opt.label}
+                        </button>
+                     ))}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -91,7 +116,12 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Chart Section */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-border shadow-sm">
-                    <h3 className="font-serif text-xl mb-6 text-primary">Andamento Vendite (7 Giorni)</h3>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="font-serif text-xl text-primary">Andamento Vendite</h3>
+                        <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
+                            {range === 'today' ? 'Oggi' : `Ultimi ${range}`}
+                        </span>
+                    </div>
                     <div className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData}>
@@ -119,15 +149,16 @@ const Dashboard = () => {
                                     <p className="font-medium text-primary">{order.customer_name}</p>
                                     <p className="text-xs text-muted-foreground">{order.items.length} articoli • {formatCurrency(order.total_amount)}</p>
                                 </div>
-                                <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
-                                    ${order.status === 'received' ? 'bg-yellow-100 text-yellow-700' : 
-                                      order.status === 'ready' ? 'bg-green-100 text-green-700' : 
-                                      'bg-gray-100 text-gray-600'}`}>
-                                    {order.status}
-                                </span>
+                                <div className="flex flex-col items-end gap-1">
+                                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
+                                        ${order.status === 'received' ? 'bg-yellow-100 text-yellow-700' : 
+                                        order.status === 'ready' ? 'bg-green-100 text-green-700' : 
+                                        'bg-gray-100 text-gray-600'}`}>
+                                        {order.status}
+                                    </span>
+                                </div>
                             </div>
                         ))}
-                        {recentOrders.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nessun ordine recente</p>}
                     </div>
                 </div>
             </div>

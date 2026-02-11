@@ -40,6 +40,9 @@ class Product(BaseModel):
     price: float
     category: str
     image_url: Optional[str] = None
+    sku: Optional[str] = None
+    stock_status: Optional[str] = None
+    source: str = "manual"
 
 class OrderItem(BaseModel):
     product_id: str
@@ -55,6 +58,7 @@ class Order(BaseModel):
     items: List[OrderItem]
     total_amount: float
     status: OrderStatus = OrderStatus.RECEIVED
+    payment_status: str = "unpaid" # NEW field
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     notes: Optional[str] = None
