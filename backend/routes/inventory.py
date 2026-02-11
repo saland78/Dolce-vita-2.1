@@ -9,7 +9,8 @@ router = APIRouter(prefix="/inventory", tags=["inventory"])
 # --- Ingredients ---
 @router.get("/ingredients", response_model=List[Ingredient])
 async def get_ingredients(db: AsyncIOMotorDatabase = Depends(get_db)):
-    return await db.ingredients.find({}, {"_id": 0}).to_list(100)
+    # Include _id so Pydantic can map it
+    return await db.ingredients.find({}).to_list(100)
 
 @router.post("/ingredients", response_model=Ingredient)
 async def create_ingredient(ing: Ingredient, db: AsyncIOMotorDatabase = Depends(get_db)):
@@ -19,7 +20,8 @@ async def create_ingredient(ing: Ingredient, db: AsyncIOMotorDatabase = Depends(
 # --- Products ---
 @router.get("/products", response_model=List[Product])
 async def get_products(db: AsyncIOMotorDatabase = Depends(get_db)):
-    return await db.products.find({}, {"_id": 0}).to_list(100)
+    # CRITICAL FIX: Do NOT exclude _id. Pydantic needs it to match WC ID.
+    return await db.products.find({}).to_list(100)
 
 @router.post("/products", response_model=Product)
 async def create_product(prod: Product, db: AsyncIOMotorDatabase = Depends(get_db)):
@@ -31,11 +33,7 @@ async def get_product_orders(product_id: str, db: AsyncIOMotorDatabase = Depends
     """
     Returns list of customers who ordered this product.
     Matching: items.product_id (string) == product_id (string)
-    Note: We filter to only show 'completed' orders in history usually, but let's show all for now.
     """
-    # Debug print
-    print(f"Fetching history for product_id: {product_id}")
-    
     pipeline = [
         {"$unwind": "$items"},
         {"$match": {"items.product_id": product_id}},
@@ -52,7 +50,6 @@ async def get_product_orders(product_id: str, db: AsyncIOMotorDatabase = Depends
     
     results = await db.orders.aggregate(pipeline).to_list(100)
     
-    # Format dates
     for r in results:
         if r.get("created_at"):
             r["created_at"] = r["created_at"].isoformat()
