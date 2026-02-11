@@ -30,6 +30,7 @@ async def create_product(prod: Product, db: AsyncIOMotorDatabase = Depends(get_d
 async def get_product_orders(product_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
     """
     Returns list of customers who ordered this product.
+    Matching: items.product_id (string) == product_id (string)
     """
     pipeline = [
         {"$unwind": "$items"},
@@ -45,6 +46,12 @@ async def get_product_orders(product_id: str, db: AsyncIOMotorDatabase = Depends
     ]
     
     results = await db.orders.aggregate(pipeline).to_list(100)
+    
+    # Format dates
+    for r in results:
+        if r.get("created_at"):
+            r["created_at"] = r["created_at"].isoformat()
+            
     return results
 
 @router.post("/seed")
@@ -62,17 +69,5 @@ async def seed_inventory(db: AsyncIOMotorDatabase = Depends(get_db)):
     
     for i in ingredients:
         await db.ingredients.insert_one(i.model_dump(by_alias=True))
-        
-    products = [
-        Product(id="p1", name="Torta Sacher", description="Classica torta viennese al cioccolato", price=35.0, category="Torte", image_url="https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&q=80&w=400"),
-        Product(id="p2", name="Croissant Vuoto", description="Sfoglia burrosa e fragrante", price=1.5, category="Colazione", image_url="https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=400"),
-        Product(id="p3", name="Bignè Crema", description="Pasta choux ripiena di crema pasticcera", price=1.8, category="Mignon", image_url="https://images.unsplash.com/photo-1559599525-27a94f6c483a?auto=format&fit=crop&q=80&w=400"),
-    ]
-    
-    for p in products:
-        try:
-            await db.products.insert_one(p.model_dump(by_alias=True))
-        except:
-            pass # duplicate key ignore
         
     return {"message": "Seeded successfully"}
