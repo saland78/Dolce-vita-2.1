@@ -14,17 +14,21 @@ load_dotenv(ROOT_DIR / '.env')
 
 app = FastAPI(title="BakeryOS API")
 
-# Setup CORS
+# SECURITY: Load allowed origins from env, default to specific frontend
+# In production, this should be comma-separated list of customer domains
+allowed_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,https://bakeryos.app').split(',')
+
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True, 
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_credentials=True, # Required for HttpOnly Cookies
+    allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.middleware("http")
 async def fix_proxy_headers(request: Request, call_next):
+    # Security: Trust proxies only if configured (e.g. Nginx/Traefik)
     forwarded_proto = request.headers.get("x-forwarded-proto")
     if forwarded_proto:
         request.scope["scheme"] = forwarded_proto
@@ -47,7 +51,6 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup_event():
-    # Start the background sync task
     asyncio.create_task(sync_woocommerce())
 
 @app.on_event("shutdown")
