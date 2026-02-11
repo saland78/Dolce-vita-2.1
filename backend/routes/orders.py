@@ -1,40 +1,48 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 from datetime import datetime, timezone, timedelta
-from pydantic import BaseModel
-from models import Order, OrderCreate, OrderStatus, OrderItem
+from models import Order, OrderCreate, OrderStatus
 from database import get_db
 from services.email_service import EmailService
+from dependencies import get_current_user_and_bakery
 
 router = APIRouter(prefix="/orders", tags=["orders"])
-
-class ProductionStatusUpdate(BaseModel):
-    product_name: str
-    completed: bool
-    date: str # YYYY-MM-DD
 
 @router.get("/", response_model=List[Order])
 async def get_orders(
     status: str = None, 
     archived: bool = False, 
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    context: tuple = Depends(get_current_user_and_bakery)
 ):
+    _, bakery_id = context
+    
+    # Filter by TENANT
+    query = {"bakery_id": bakery_id}
+    
     if not archived:
-        query = {"archived": {"$ne": True}}
+        query["archived"] = {"$ne": True}
     else:
-        query = {"archived": True}
+        query["archived"] = True
         
     if status:
         query["status"] = status
+        
     orders = await db.orders.find(query).sort("created_at", -1).to_list(100)
     return orders
 
 @router.post("/", response_model=Order)
-async def create_order(order_in: OrderCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def create_order(
+    order_in: OrderCreate, 
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    context: tuple = Depends(get_current_user_and_bakery)
+):
+    _, bakery_id = context
     total = sum(item.quantity * item.unit_price for item in order_in.items)
     
     order = Order(
+        bakery_id=bakery_id, # Tenant
         customer_name=order_in.customer_name,
         customer_email=order_in.customer_email,
         items=order_in.items,
@@ -48,13 +56,21 @@ async def create_order(order_in: OrderCreate, db: AsyncIOMotorDatabase = Depends
     return order
 
 @router.put("/{order_id}/status", response_model=Order)
-async def update_status(order_id: str, status: OrderStatus, db: AsyncIOMotorDatabase = Depends(get_db)):
-    original_order = await db.orders.find_one({"_id": order_id})
+async def update_status(
+    order_id: str, 
+    status: OrderStatus, 
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    context: tuple = Depends(get_current_user_and_bakery)
+):
+    _, bakery_id = context
+    
+    # Ensure update is scoped to tenant
+    original_order = await db.orders.find_one({"_id": order_id, "bakery_id": bakery_id})
     if not original_order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     result = await db.orders.find_one_and_update(
-        {"_id": order_id},
+        {"_id": order_id, "bakery_id": bakery_id},
         {"$set": {"status": status, "updated_at": datetime.now(timezone.utc)}},
         return_document=True
     )
@@ -71,9 +87,14 @@ async def update_status(order_id: str, status: OrderStatus, db: AsyncIOMotorData
     return result
 
 @router.put("/{order_id}/archive", response_model=Order)
-async def archive_order(order_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def archive_order(
+    order_id: str, 
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    context: tuple = Depends(get_current_user_and_bakery)
+):
+    _, bakery_id = context
     result = await db.orders.find_one_and_update(
-        {"_id": order_id},
+        {"_id": order_id, "bakery_id": bakery_id},
         {"$set": {"archived": True}},
         return_document=True
     )
@@ -82,17 +103,24 @@ async def archive_order(order_id: str, db: AsyncIOMotorDatabase = Depends(get_db
     return result
 
 @router.get("/stats")
-async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
-    total_orders = await db.orders.count_documents({"archived": {"$ne": True}})
-    pending = await db.orders.count_documents({"status": "received", "archived": {"$ne": True}})
-    production = await db.orders.count_documents({"status": "in_production", "archived": {"$ne": True}})
-    completed = await db.orders.count_documents({"status": "ready", "archived": {"$ne": True}})
+async def get_stats(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    context: tuple = Depends(get_current_user_and_bakery)
+):
+    _, bakery_id = context
+    base_query = {"bakery_id": bakery_id, "archived": {"$ne": True}}
+    
+    total_orders = await db.orders.count_documents(base_query)
+    pending = await db.orders.count_documents({**base_query, "status": "received"})
+    production = await db.orders.count_documents({**base_query, "status": "in_production"})
+    completed = await db.orders.count_documents({**base_query, "status": "ready"})
     
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     
     pipeline = [
         {
             "$match": {
+                "bakery_id": bakery_id, # TENANT
                 "created_at": {"$gte": today_start},
                 "status": {"$ne": OrderStatus.CANCELLED},
                 "archived": {"$ne": True}
@@ -118,33 +146,37 @@ async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
     }
 
 @router.get("/sales-history")
-async def get_sales_history(time_range: str = Query("7d", alias="range"), db: AsyncIOMotorDatabase = Depends(get_db)):
+async def get_sales_history(
+    time_range: str = Query("7d", alias="range"), 
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    context: tuple = Depends(get_current_user_and_bakery)
+):
+    _, bakery_id = context
     now = datetime.now(timezone.utc)
     
     if time_range == "today":
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
         group_format = {"hour": {"$hour": "$created_at"}}
-    elif time_range == "7d":
-        start_date = now - timedelta(days=7)
-        group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}, "day": {"$dayOfMonth": "$created_at"}}
-    elif time_range == "30d":
-        start_date = now - timedelta(days=30)
-        group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}, "day": {"$dayOfMonth": "$created_at"}}
-    elif time_range == "6m":
-        start_date = now - timedelta(days=180)
-        group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}}
-    elif time_range == "1y":
-        start_date = now - timedelta(days=365)
-        group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}}
     else:
+        # Default fallback
         start_date = now - timedelta(days=7)
         group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}, "day": {"$dayOfMonth": "$created_at"}}
+        
+        if time_range == "7d": start_date = now - timedelta(days=7)
+        elif time_range == "30d": start_date = now - timedelta(days=30)
+        elif time_range == "6m":
+            start_date = now - timedelta(days=180)
+            group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}}
+        elif time_range == "1y":
+            start_date = now - timedelta(days=365)
+            group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}}
 
     pipeline = [
         {
             "$match": {
+                "bakery_id": bakery_id, # TENANT
                 "created_at": {"$gte": start_date},
-                "status": {"$ne": OrderStatus.CANCELLED},
+                "status": {"$ne": OrderStatus.CANCELLED}
             }
         },
         {"$group": {
@@ -179,26 +211,22 @@ async def get_sales_history(time_range: str = Query("7d", alias="range"), db: As
     if time_range == "today":
         for h in range(24):
             key = str(h)
-            formatted.append({
-                "name": f"{h}:00",
-                "sales": sales_map.get(key, 0)
-            })
+            formatted.append({"name": f"{h}:00", "sales": sales_map.get(str(h), 0)})
             
     return formatted
 
-# --- PRODUCTION PLAN ---
-
 @router.get("/production-plan")
-async def get_production_plan(date: str = Query(default=None), db: AsyncIOMotorDatabase = Depends(get_db)):
-    """
-    Returns aggregated items + completion status.
-    """
-    target_date = date or datetime.now().strftime("%Y-%m-%d")
+async def get_production_plan(
+    date: Optional[str] = None, 
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    context: tuple = Depends(get_current_user_and_bakery)
+):
+    _, bakery_id = context
     
-    # 1. Get Aggregated Items
     pipeline = [
         {
             "$match": {
+                "bakery_id": bakery_id, # TENANT
                 "status": {"$in": ["received", "in_production"]},
                 "archived": {"$ne": True}
             }
@@ -217,33 +245,4 @@ async def get_production_plan(date: str = Query(default=None), db: AsyncIOMotorD
     ]
     
     plan = await db.orders.aggregate(pipeline).to_list(100)
-    
-    # 2. Get Status for this date
-    statuses = await db.production_status.find({"date": target_date}).to_list(1000)
-    status_map = {s["product_name"]: s["completed"] for s in statuses}
-    
-    # 3. Merge
-    for item in plan:
-        item["completed"] = status_map.get(item["_id"], False)
-        
     return plan
-
-@router.post("/production-plan/toggle")
-async def toggle_production_status(update: ProductionStatusUpdate, db: AsyncIOMotorDatabase = Depends(get_db)):
-    """
-    Persists the completion status of a production item for a specific date.
-    """
-    await db.production_status.update_one(
-        {
-            "date": update.date,
-            "product_name": update.product_name
-        },
-        {
-            "$set": {
-                "completed": update.completed,
-                "updated_at": datetime.now(timezone.utc)
-            }
-        },
-        upsert=True
-    )
-    return {"status": "ok"}
