@@ -2,11 +2,17 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
+from pydantic import BaseModel
 from models import Order, OrderCreate, OrderStatus, OrderItem
 from database import get_db
 from services.email_service import EmailService
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+
+class ProductionStatusUpdate(BaseModel):
+    product_name: str
+    completed: bool
+    date: str # YYYY-MM-DD
 
 @router.get("/", response_model=List[Order])
 async def get_orders(
@@ -14,8 +20,6 @@ async def get_orders(
     archived: bool = False, 
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
-    # Robust query: If archived=False, we want docs where archived is False OR missing (ne True).
-    # If archived=True, we want docs where archived is True.
     if not archived:
         query = {"archived": {"$ne": True}}
     else:
@@ -55,7 +59,6 @@ async def update_status(order_id: str, status: OrderStatus, db: AsyncIOMotorData
         return_document=True
     )
 
-    # EMAIL TRIGGER
     if status == OrderStatus.READY and original_order.get("status") != OrderStatus.READY:
         customer_email = result.get("customer_email")
         if customer_email:
@@ -85,7 +88,6 @@ async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
     production = await db.orders.count_documents({"status": "in_production", "archived": {"$ne": True}})
     completed = await db.orders.count_documents({"status": "ready", "archived": {"$ne": True}})
     
-    # REVENUE FIX: Sum of all NON-CANCELLED orders created today
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     
     pipeline = [
@@ -143,7 +145,6 @@ async def get_sales_history(time_range: str = Query("7d", alias="range"), db: As
             "$match": {
                 "created_at": {"$gte": start_date},
                 "status": {"$ne": OrderStatus.CANCELLED},
-                # We include archived orders in history? Usually yes for sales history.
             }
         },
         {"$group": {
@@ -185,8 +186,16 @@ async def get_sales_history(time_range: str = Query("7d", alias="range"), db: As
             
     return formatted
 
+# --- PRODUCTION PLAN ---
+
 @router.get("/production-plan")
-async def get_production_plan(date: Optional[str] = None, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def get_production_plan(date: str = Query(default=None), db: AsyncIOMotorDatabase = Depends(get_db)):
+    """
+    Returns aggregated items + completion status.
+    """
+    target_date = date or datetime.now().strftime("%Y-%m-%d")
+    
+    # 1. Get Aggregated Items
     pipeline = [
         {
             "$match": {
@@ -208,4 +217,33 @@ async def get_production_plan(date: Optional[str] = None, db: AsyncIOMotorDataba
     ]
     
     plan = await db.orders.aggregate(pipeline).to_list(100)
+    
+    # 2. Get Status for this date
+    statuses = await db.production_status.find({"date": target_date}).to_list(1000)
+    status_map = {s["product_name"]: s["completed"] for s in statuses}
+    
+    # 3. Merge
+    for item in plan:
+        item["completed"] = status_map.get(item["_id"], False)
+        
     return plan
+
+@router.post("/production-plan/toggle")
+async def toggle_production_status(update: ProductionStatusUpdate, db: AsyncIOMotorDatabase = Depends(get_db)):
+    """
+    Persists the completion status of a production item for a specific date.
+    """
+    await db.production_status.update_one(
+        {
+            "date": update.date,
+            "product_name": update.product_name
+        },
+        {
+            "$set": {
+                "completed": update.completed,
+                "updated_at": datetime.now(timezone.utc)
+            }
+        },
+        upsert=True
+    )
+    return {"status": "ok"}
