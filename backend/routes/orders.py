@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
@@ -19,6 +19,7 @@ async def get_orders(status: str = None, db: AsyncIOMotorDatabase = Depends(get_
 @router.post("/", response_model=Order)
 async def create_order(order_in: OrderCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
     total = sum(item.quantity * item.unit_price for item in order_in.items)
+    
     order = Order(
         customer_name=order_in.customer_name,
         customer_email=order_in.customer_email,
@@ -28,6 +29,7 @@ async def create_order(order_in: OrderCreate, db: AsyncIOMotorDatabase = Depends
         source="manual",
         status=OrderStatus.RECEIVED
     )
+    
     await db.orders.insert_one(order.model_dump(by_alias=True))
     return order
 
@@ -42,6 +44,8 @@ async def update_status(order_id: str, status: OrderStatus, db: AsyncIOMotorData
         {"$set": {"status": status, "updated_at": datetime.now(timezone.utc)}},
         return_document=True
     )
+
+    # EMAIL TRIGGER
     if status == OrderStatus.READY and original_order.get("status") != OrderStatus.READY:
         customer_email = result.get("customer_email")
         if customer_email:
@@ -50,25 +54,29 @@ async def update_status(order_id: str, status: OrderStatus, db: AsyncIOMotorData
                 customer_name=result.get("customer_name"), 
                 order_id=order_id
             )
+
     return result
 
 @router.get("/stats")
 async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
+    # Counts
     total_orders = await db.orders.count_documents({})
-    pending = await db.orders.count_documents({"status": "received"})
-    production = await db.orders.count_documents({"status": "in_production"})
-    completed = await db.orders.count_documents({"status": "ready"})
+    # "In Attesa": includes RECEIVED (WP processing/pending)
+    pending = await db.orders.count_documents({"status": OrderStatus.RECEIVED})
+    # "In Produzione": includes IN_PRODUCTION
+    production = await db.orders.count_documents({"status": OrderStatus.IN_PRODUCTION})
+    # "Completati" (Incassati): includes DELIVERED
+    completed = await db.orders.count_documents({"status": OrderStatus.DELIVERED})
     
-    # REVENUE FIX: Sum of all NON-CANCELLED orders created today (Sales View)
-    # This reflects "How much business did we do today?", regardless of payment status.
-    # If you want "Cash Collected", that's a different metric.
+    # Revenue Today: Only sum orders marked as DELIVERED (Completed) today.
+    # We use 'updated_at' to check when it became completed/delivered.
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     
     pipeline = [
         {
             "$match": {
-                "created_at": {"$gte": today_start},
-                "status": {"$ne": OrderStatus.CANCELLED}
+                "status": OrderStatus.DELIVERED,
+                "updated_at": {"$gte": today_start}
             }
         },
         {
@@ -94,48 +102,41 @@ async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
 async def get_sales_history(range: str = "7d", db: AsyncIOMotorDatabase = Depends(get_db)):
     """
     Returns aggregated sales for the chart.
-    Counts ALL non-cancelled orders by CREATION date.
+    ONLY counts orders that are DELIVERED (Completed).
     """
     now = datetime.now(timezone.utc)
     
     if range == "today":
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        group_format = {"hour": {"$hour": "$created_at"}}
-        # Generate all 24h keys
-        all_keys = [str(h) for h in range(24)]
+        group_format = {"hour": {"$hour": "$updated_at"}} # Use updated_at for delivery time
     elif range == "7d":
         start_date = now - timedelta(days=7)
-        group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}, "day": {"$dayOfMonth": "$created_at"}}
-        all_keys = [] # Will fill dynamically
+        group_format = {"year": {"$year": "$updated_at"}, "month": {"$month": "$updated_at"}, "day": {"$dayOfMonth": "$updated_at"}}
     elif range == "30d":
         start_date = now - timedelta(days=30)
-        group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}, "day": {"$dayOfMonth": "$created_at"}}
-        all_keys = []
+        group_format = {"year": {"$year": "$updated_at"}, "month": {"$month": "$updated_at"}, "day": {"$dayOfMonth": "$updated_at"}}
     elif range == "6m":
         start_date = now - timedelta(days=180)
-        group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}}
-        all_keys = []
+        group_format = {"year": {"$year": "$updated_at"}, "month": {"$month": "$updated_at"}}
     elif range == "1y":
         start_date = now - timedelta(days=365)
-        group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}}
-        all_keys = []
+        group_format = {"year": {"$year": "$updated_at"}, "month": {"$month": "$updated_at"}}
     else:
         start_date = now - timedelta(days=7)
-        group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}, "day": {"$dayOfMonth": "$created_at"}}
-        all_keys = []
+        group_format = {"year": {"$year": "$updated_at"}, "month": {"$month": "$updated_at"}, "day": {"$dayOfMonth": "$updated_at"}}
 
     pipeline = [
         {
             "$match": {
-                "created_at": {"$gte": start_date},
-                "status": {"$ne": OrderStatus.CANCELLED}
+                "updated_at": {"$gte": start_date},
+                "status": OrderStatus.DELIVERED
             }
         },
         {"$group": {
             "_id": group_format,
             "sales": {"$sum": "$total_amount"}
         }},
-        {"$sort": {"_id.year": 1, "_id.month": 1, "_id.day": 1, "_id.hour": 1}}
+        {"$sort": {"_id.year": 1, "_id.month": 1, "_id.day": 1}}
     ]
     
     data = await db.orders.aggregate(pipeline).to_list(1000)
@@ -143,6 +144,7 @@ async def get_sales_history(range: str = "7d", db: AsyncIOMotorDatabase = Depend
     formatted = []
     sales_map = {}
     
+    # Fill map
     for d in data:
         key = ""
         label = ""
@@ -157,10 +159,9 @@ async def get_sales_history(range: str = "7d", db: AsyncIOMotorDatabase = Depend
             label = key
         
         sales_map[key] = d['sales']
-        if range not in ["today"]: # For range > today, just append valid dates
+        if range != "today":
              formatted.append({"name": label, "sales": d['sales']})
 
-    # For 'today', fill gaps 0-23
     if range == "today":
         for h in range(24):
             key = str(h)
@@ -173,6 +174,7 @@ async def get_sales_history(range: str = "7d", db: AsyncIOMotorDatabase = Depend
 
 @router.get("/production-plan")
 async def get_production_plan(date: Optional[str] = None, db: AsyncIOMotorDatabase = Depends(get_db)):
+    # Aggregates items from 'received' and 'in_production' orders.
     pipeline = [
         {"$match": {"status": {"$in": ["received", "in_production"]}}},
         {"$unwind": "$items"},

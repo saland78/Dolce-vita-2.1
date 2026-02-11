@@ -8,8 +8,8 @@ const OrderCard = ({ order, onUpdateStatus }) => {
     const statusColors = {
         received: 'border-yellow-400 bg-yellow-50/50',
         in_production: 'border-orange-400 bg-orange-50/50',
-        ready: 'border-green-400 bg-green-50/50',
-        delivered: 'border-gray-300 bg-gray-50/50',
+        ready: 'border-blue-400 bg-blue-50/50', // Ready for Pickup
+        delivered: 'border-green-400 bg-green-50/50', // Completed
     };
 
     return (
@@ -31,10 +31,11 @@ const OrderCard = ({ order, onUpdateStatus }) => {
             </div>
 
             <div className="flex gap-2 mt-2">
+                {/* Workflow: Received -> In Production -> Ready -> Delivered */}
                 {order.status === 'received' && (
                     <button 
                         onClick={() => onUpdateStatus(order._id, 'in_production')}
-                        className="w-full py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90"
+                        className="w-full py-1.5 rounded-lg bg-orange-500 text-white text-xs font-medium hover:bg-orange-600"
                     >
                         Inizia Produzione
                     </button>
@@ -42,9 +43,9 @@ const OrderCard = ({ order, onUpdateStatus }) => {
                 {order.status === 'in_production' && (
                     <button 
                         onClick={() => onUpdateStatus(order._id, 'ready')}
-                        className="w-full py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/90"
+                        className="w-full py-1.5 rounded-lg bg-blue-500 text-white text-xs font-medium hover:bg-blue-600"
                     >
-                        Segna Pronto
+                        Pronto per Ritiro
                     </button>
                 )}
                 {order.status === 'ready' && (
@@ -52,8 +53,13 @@ const OrderCard = ({ order, onUpdateStatus }) => {
                         onClick={() => onUpdateStatus(order._id, 'delivered')}
                         className="w-full py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700"
                     >
-                        Consegna
+                        Consegna & Incassa
                     </button>
+                )}
+                {order.status === 'delivered' && (
+                    <div className="w-full text-center text-xs font-bold text-green-700 bg-green-100 py-1.5 rounded-lg">
+                        COMPLETATO
+                    </div>
                 )}
             </div>
         </div>
@@ -89,7 +95,7 @@ const Orders = () => {
 
     useEffect(() => {
         fetchOrders();
-        const interval = setInterval(fetchOrders, 3000); // Fast polling for orders
+        const interval = setInterval(fetchOrders, 5000); 
         return () => clearInterval(interval);
     }, []);
 
@@ -102,7 +108,7 @@ const Orders = () => {
         <Layout>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-serif text-primary">Gestione Ordini</h1>
-                <div className="text-sm text-muted-foreground">Syncing: 3s</div>
+                <div className="text-sm text-muted-foreground">Syncing: 5s</div>
             </div>
 
             <div className="flex gap-6 overflow-x-auto pb-6">

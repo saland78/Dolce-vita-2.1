@@ -6,7 +6,7 @@ from database import get_db
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
-# --- Ingredients (Materie Prime) ---
+# --- Ingredients ---
 @router.get("/ingredients", response_model=List[Ingredient])
 async def get_ingredients(db: AsyncIOMotorDatabase = Depends(get_db)):
     return await db.ingredients.find({}, {"_id": 0}).to_list(100)
@@ -16,7 +16,7 @@ async def create_ingredient(ing: Ingredient, db: AsyncIOMotorDatabase = Depends(
     await db.ingredients.insert_one(ing.model_dump(by_alias=True))
     return ing
 
-# --- Products (Prodotti Finiti) ---
+# --- Products ---
 @router.get("/products", response_model=List[Product])
 async def get_products(db: AsyncIOMotorDatabase = Depends(get_db)):
     return await db.products.find({}, {"_id": 0}).to_list(100)
@@ -31,7 +31,11 @@ async def get_product_orders(product_id: str, db: AsyncIOMotorDatabase = Depends
     """
     Returns list of customers who ordered this product.
     Matching: items.product_id (string) == product_id (string)
+    Note: We filter to only show 'completed' orders in history usually, but let's show all for now.
     """
+    # Debug print
+    print(f"Fetching history for product_id: {product_id}")
+    
     pipeline = [
         {"$unwind": "$items"},
         {"$match": {"items.product_id": product_id}},
@@ -40,6 +44,7 @@ async def get_product_orders(product_id: str, db: AsyncIOMotorDatabase = Depends
             "customer_email": 1,
             "quantity": "$items.quantity",
             "created_at": 1,
+            "status": 1,
             "_id": 0
         }},
         {"$sort": {"created_at": -1}}
