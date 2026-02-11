@@ -1,13 +1,19 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from typing import List, Optional
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
-from models import Order, OrderCreate, OrderStatus
+from pydantic import BaseModel
+from models import Order, OrderCreate, OrderStatus, OrderItem
 from database import get_db
 from services.email_service import EmailService
 from dependencies import get_current_user_and_bakery
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+
+class ProductionStatusUpdate(BaseModel):
+    product_name: str
+    completed: bool
+    date: str # YYYY-MM-DD
 
 @router.get("/", response_model=List[Order])
 async def get_orders(
@@ -64,7 +70,6 @@ async def update_status(
 ):
     _, bakery_id = context
     
-    # Ensure update is scoped to tenant
     original_order = await db.orders.find_one({"_id": order_id, "bakery_id": bakery_id})
     if not original_order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -120,7 +125,7 @@ async def get_stats(
     pipeline = [
         {
             "$match": {
-                "bakery_id": bakery_id, # TENANT
+                "bakery_id": bakery_id,
                 "created_at": {"$gte": today_start},
                 "status": {"$ne": OrderStatus.CANCELLED},
                 "archived": {"$ne": True}
@@ -174,7 +179,7 @@ async def get_sales_history(
     pipeline = [
         {
             "$match": {
-                "bakery_id": bakery_id, # TENANT
+                "bakery_id": bakery_id,
                 "created_at": {"$gte": start_date},
                 "status": {"$ne": OrderStatus.CANCELLED}
             }
@@ -215,6 +220,8 @@ async def get_sales_history(
             
     return formatted
 
+# --- PRODUCTION PLAN ---
+
 @router.get("/production-plan")
 async def get_production_plan(
     date: Optional[str] = None, 
@@ -222,6 +229,7 @@ async def get_production_plan(
     context: tuple = Depends(get_current_user_and_bakery)
 ):
     _, bakery_id = context
+    target_date = date or datetime.now().strftime("%Y-%m-%d")
     
     pipeline = [
         {
@@ -245,4 +253,40 @@ async def get_production_plan(
     ]
     
     plan = await db.orders.aggregate(pipeline).to_list(100)
+    
+    # Merge with persistent status (Scoped to Bakery)
+    statuses = await db.production_status.find({
+        "bakery_id": bakery_id,
+        "date": target_date
+    }).to_list(1000)
+    
+    status_map = {s["product_name"]: s["completed"] for s in statuses}
+    
+    for item in plan:
+        item["completed"] = status_map.get(item["_id"], False)
+        
     return plan
+
+@router.post("/production-plan/toggle")
+async def toggle_production_status(
+    update: ProductionStatusUpdate, 
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    context: tuple = Depends(get_current_user_and_bakery)
+):
+    _, bakery_id = context
+    
+    await db.production_status.update_one(
+        {
+            "bakery_id": bakery_id, # TENANT
+            "date": update.date,
+            "product_name": update.product_name
+        },
+        {
+            "$set": {
+                "completed": update.completed,
+                "updated_at": datetime.now(timezone.utc)
+            }
+        },
+        upsert=True
+    )
+    return {"status": "ok"}
