@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { getStats, getOrders, getSalesHistory } from '../api/api';
-import { ArrowUpRight, Clock, CheckCircle, Truck, Package, ChefHat, Calendar } from 'lucide-react';
+import { getStats, getOrders, getSalesHistory, getCurrentUser } from '../api/api';
+import { ArrowUpRight, Clock, CheckCircle, Truck, Package, ChefHat } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const formatCurrency = (value) => {
@@ -23,6 +23,7 @@ const StatCard = ({ title, value, icon: Icon, color, isCurrency }) => (
 );
 
 const Dashboard = () => {
+    const [user, setUser] = useState(null);
     const [stats, setStats] = useState(null);
     const [recentOrders, setRecentOrders] = useState([]);
     const [chartData, setChartData] = useState([]);
@@ -31,11 +32,13 @@ const Dashboard = () => {
 
     const fetchData = async () => {
         try {
-            const [statsData, ordersData, historyData] = await Promise.all([
+            const [userData, statsData, ordersData, historyData] = await Promise.all([
+                getCurrentUser(),
                 getStats(), 
                 getOrders(),
                 getSalesHistory(range)
             ]);
+            setUser(userData);
             setStats(statsData);
             setRecentOrders(ordersData.slice(0, 5));
             setChartData(historyData);
@@ -50,19 +53,20 @@ const Dashboard = () => {
         fetchData();
         const interval = setInterval(fetchData, 10000); 
         return () => clearInterval(interval);
-    }, [range]); // Refetch when range changes
+    }, [range]);
 
-    if (loading) return <div className="flex h-screen items-center justify-center text-primary font-serif">Caricamento Pasticceria...</div>;
+    if (loading) return <div className="flex h-screen items-center justify-center text-primary font-serif">Caricamento...</div>;
 
     return (
         <Layout>
             <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-4xl font-serif text-primary mb-2">Buongiorno, Chef.</h1>
+                    <h1 className="text-4xl font-serif text-primary mb-2">
+                        Buongiorno, {user?.name?.split(' ')[0] || 'Chef'}.
+                    </h1>
                     <p className="text-muted-foreground">Ecco la situazione della pasticceria oggi.</p>
                 </div>
                 <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-border">
-                     {/* Range Selector */}
                      {[
                         { label: 'Oggi', value: 'today' },
                         { label: '7 Giorni', value: '7d' },
@@ -114,7 +118,6 @@ const Dashboard = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Chart Section */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-border shadow-sm">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="font-serif text-xl text-primary">Andamento Vendite</h3>
@@ -139,7 +142,6 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Recent Orders */}
                 <div className="bg-white p-6 rounded-2xl border border-border shadow-sm">
                     <h3 className="font-serif text-xl mb-4 text-primary">Ordini Recenti</h3>
                     <div className="space-y-4">

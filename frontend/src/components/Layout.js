@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, ShoppingBag, Box, Settings, ChefHat, LogOut, PlusCircle, CakeSlice, Users, ClipboardList } from 'lucide-react';
-import { logout } from '../api/api';
+import { logout, getCurrentUser } from '../api/api';
 import { toast } from 'sonner';
 
 const SidebarItem = ({ icon: Icon, label, to, active }) => (
@@ -21,6 +21,11 @@ const SidebarItem = ({ icon: Icon, label, to, active }) => (
 const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [user, setUser] = useState({ name: "Caricamento...", email: "" });
+
+  useEffect(() => {
+      getCurrentUser().then(setUser).catch(console.error);
+  }, []);
 
   const handleLogout = async () => {
       try {
@@ -58,11 +63,20 @@ const Layout = ({ children }) => {
 
         <div className="pt-6 border-t border-border space-y-4">
             <div className="flex items-center gap-3 px-4 py-2">
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-primary font-bold">A</div>
-                <div className="flex-1">
-                    <p className="text-sm font-medium">Admin User</p>
-                    <button onClick={handleLogout} className="text-xs text-muted-foreground hover:text-destructive text-left block">Esci</button>
+                {user.picture ? (
+                    <img src={user.picture} alt="Avatar" className="w-8 h-8 rounded-full border border-border" />
+                ) : (
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-primary font-bold">
+                        {user.name ? user.name[0].toUpperCase() : "U"}
+                    </div>
+                )}
+                <div className="flex-1 overflow-hidden">
+                    <p className="text-sm font-medium truncate">{user.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
+                <button onClick={handleLogout} title="Esci">
+                    <LogOut size={16} className="text-muted-foreground cursor-pointer hover:text-destructive" />
+                </button>
             </div>
         </div>
       </aside>
