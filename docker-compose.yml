@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # 1. FRONTEND
+  frontend:
+    build: ./frontend
+    container_name: bakeryos-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_BACKEND_URL=https://api.bakeryos.app # Cambia con il tuo dominio reale
+    depends_on:
+      - backend
+
+  # 2. BACKEND
+  backend:
+    build: ./backend
+    container_name: bakeryos-backend
+    restart: always
+    ports:
+      - "8001:8001"
+    environment:
+      - MONGO_URL=mongodb://mongo:27017
+      - DB_NAME=bakeryos_production
+      # Chiavi di default per admin (opzionale)
+      - WC_URL=https://pasticceria.andreasalardi.it/
+      - CORS_ORIGINS=https://bakeryos.app,http://localhost:3000
+    depends_on:
+      - mongo
+
+  # 3. DATABASE
+  mongo:
+    image: mongo:6.0
+    container_name: bakeryos-mongo
+    restart: always
+    ports:
+      - "27017:27017" # Solo per debug, in prod chiudi questa porta o usa VPN
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
