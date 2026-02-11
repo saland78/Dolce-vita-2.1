@@ -65,7 +65,6 @@ async def sync_products(wcapi):
                     "updated_at": datetime.now(timezone.utc)
                 }
                 
-                # IMPORTANT: Do not overwrite the ID, Pydantic needs correct mapping
                 await db.products.update_one(
                     {"_id": wc_id},
                     {"$set": prod_data},
@@ -90,7 +89,6 @@ async def sync_orders(wcapi):
         for o in orders:
             wc_id = str(o["id"])
             
-            # Check existing order to preserve LOCAL status
             existing_order = await db.orders.find_one({"_id": wc_id})
             
             items = []
@@ -115,15 +113,11 @@ async def sync_orders(wcapi):
             wc_status_mapped = status_map.get(o["status"], OrderStatus.RECEIVED)
             final_status = wc_status_mapped
 
-            # CRITICAL FIX: Don't revert local progress
             if existing_order:
                 local_status = existing_order.get("status")
-                # If local is "In Production" or "Ready" and WC says "Received" (Processing), keep Local.
-                # Only update if WC forces a Cancel or Completion explicitly.
                 if local_status in [OrderStatus.IN_PRODUCTION, OrderStatus.READY] and wc_status_mapped == OrderStatus.RECEIVED:
                     final_status = local_status
             
-            # Determine payment status
             payment_status = "unpaid"
             if o["status"] in ["processing", "completed"] or o.get("date_paid"):
                 payment_status = "paid"
@@ -135,11 +129,15 @@ async def sync_orders(wcapi):
                 "items": items,
                 "total_amount": float(o["total"]),
                 "status": final_status,
-                "payment_status": payment_status, 
+                "payment_status": payment_status,
                 "created_at": datetime.fromisoformat(o["date_created_gmt"]).replace(tzinfo=timezone.utc),
                 "updated_at": datetime.now(timezone.utc),
                 "notes": clean_html(o.get("customer_note", ""))
             }
+            
+            # Ensure archived defaults to False on insert
+            if not existing_order:
+                order_data["archived"] = False
             
             await db.orders.update_one(
                 {"_id": wc_id},

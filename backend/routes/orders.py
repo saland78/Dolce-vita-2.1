@@ -11,10 +11,16 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 @router.get("/", response_model=List[Order])
 async def get_orders(
     status: str = None, 
-    archived: bool = False, # Default to showing active orders only
+    archived: bool = False, 
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
-    query = {"archived": archived}
+    # Robust query: If archived=False, we want docs where archived is False OR missing (ne True).
+    # If archived=True, we want docs where archived is True.
+    if not archived:
+        query = {"archived": {"$ne": True}}
+    else:
+        query = {"archived": True}
+        
     if status:
         query["status"] = status
     orders = await db.orders.find(query).sort("created_at", -1).to_list(100)
@@ -74,10 +80,10 @@ async def archive_order(order_id: str, db: AsyncIOMotorDatabase = Depends(get_db
 
 @router.get("/stats")
 async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
-    total_orders = await db.orders.count_documents({})
-    pending = await db.orders.count_documents({"status": "received"})
-    production = await db.orders.count_documents({"status": "in_production"})
-    completed = await db.orders.count_documents({"status": "ready"})
+    total_orders = await db.orders.count_documents({"archived": {"$ne": True}})
+    pending = await db.orders.count_documents({"status": "received", "archived": {"$ne": True}})
+    production = await db.orders.count_documents({"status": "in_production", "archived": {"$ne": True}})
+    completed = await db.orders.count_documents({"status": "ready", "archived": {"$ne": True}})
     
     # REVENUE FIX: Sum of all NON-CANCELLED orders created today
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -86,7 +92,8 @@ async def get_stats(db: AsyncIOMotorDatabase = Depends(get_db)):
         {
             "$match": {
                 "created_at": {"$gte": today_start},
-                "status": {"$ne": OrderStatus.CANCELLED}
+                "status": {"$ne": OrderStatus.CANCELLED},
+                "archived": {"$ne": True}
             }
         },
         {
@@ -135,7 +142,8 @@ async def get_sales_history(time_range: str = Query("7d", alias="range"), db: As
         {
             "$match": {
                 "created_at": {"$gte": start_date},
-                "status": {"$ne": OrderStatus.CANCELLED}
+                "status": {"$ne": OrderStatus.CANCELLED},
+                # We include archived orders in history? Usually yes for sales history.
             }
         },
         {"$group": {
@@ -180,7 +188,12 @@ async def get_sales_history(time_range: str = Query("7d", alias="range"), db: As
 @router.get("/production-plan")
 async def get_production_plan(date: Optional[str] = None, db: AsyncIOMotorDatabase = Depends(get_db)):
     pipeline = [
-        {"$match": {"status": {"$in": ["received", "in_production"]}}},
+        {
+            "$match": {
+                "status": {"$in": ["received", "in_production"]},
+                "archived": {"$ne": True}
+            }
+        },
         {"$unwind": "$items"},
         {"$group": {
             "_id": "$items.product_name",
