@@ -3,9 +3,13 @@ import { ChefHat } from 'lucide-react';
 
 const Login = () => {
     const handleLogin = () => {
-        // Dynamic redirect URL based on current origin
-        const redirectUrl = window.location.origin + '/dashboard';
-        window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+        // Direct redirect to Backend Auth Endpoint
+        // Backend will handle Google redirection and Cookie setting
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
+        // If on same domain (proxy), url is just /api/auth/login
+        // If dev, it might be http://localhost:8001/api/auth/login
+        
+        window.location.href = `${backendUrl}/api/auth/login`;
     };
 
     return (
@@ -16,7 +20,7 @@ const Login = () => {
                 </div>
                 
                 <h1 className="text-4xl font-serif text-primary mb-2">DolceVita</h1>
-                <p className="text-muted-foreground mb-8">Accesso riservato allo staff.</p>
+                <p className="text-muted-foreground mb-8">Gestionale Pasticceria 2.0</p>
 
                 <button 
                     onClick={handleLogin}
@@ -31,7 +35,7 @@ const Login = () => {
                 </button>
                 
                 <div className="mt-8 text-xs text-muted-foreground">
-                    <p>Non hai un account? Chiedi all'amministratore.</p>
+                    <p>Problemi di accesso? Contatta l'assistenza tecnica.</p>
                 </div>
             </div>
         </div>

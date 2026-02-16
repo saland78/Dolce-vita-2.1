@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 import os
 import logging
 import asyncio
@@ -14,7 +15,9 @@ load_dotenv(ROOT_DIR / '.env')
 
 app = FastAPI(title="BakeryOS API")
 
-allowed_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,https://bakeryos.app').split(',')
+# CORS Setup
+# For production, be specific. For now, allow the domain and localhost
+allowed_origins = os.environ.get('CORS_ORIGINS', 'https://pasticceria.andreasalardi.it,http://localhost:3000').split(',')
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,8 +27,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Session Middleware (Required for Authlib)
+# Use a strong secret in production!
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=os.environ.get("SECRET_KEY", "super_secret_dev_key_change_me_in_prod"),
+    https_only=True # Enable for HTTPS production
+)
+
 @app.middleware("http")
 async def fix_proxy_headers(request: Request, call_next):
+    # Important for Nginx Reverse Proxy (SSL termination)
     forwarded_proto = request.headers.get("x-forwarded-proto")
     if forwarded_proto:
         request.scope["scheme"] = forwarded_proto

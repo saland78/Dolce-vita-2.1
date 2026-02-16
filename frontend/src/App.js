@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import Inventory from "./pages/Inventory";
@@ -8,22 +8,17 @@ import Production from "./pages/Production";
 import SettingsPage from "./pages/Settings";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
-import AuthCallback from "./components/AuthCallback";
+// Removed AuthCallback import as it's no longer used
 import { Toaster } from 'sonner';
 
-// Wrapper to handle hash routing for auth
-const AppRouter = () => {
-    const location = useLocation();
-
-    // Intercept auth callback from hash
-    if (location.hash && location.hash.includes('session_id=')) {
-        return <AuthCallback />;
-    }
-
-    return (
+function App() {
+  return (
+    <>
+      <BrowserRouter>
         <Routes>
             <Route path="/login" element={<Login />} />
             
+            {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/dashboard" element={<Dashboard />} />
@@ -35,14 +30,6 @@ const AppRouter = () => {
                 <Route path="/settings" element={<SettingsPage />} />
             </Route>
         </Routes>
-    );
-};
-
-function App() {
-  return (
-    <>
-      <BrowserRouter>
-        <AppRouter />
       </BrowserRouter>
       <Toaster position="top-right" richColors />
     </>

@@ -1,54 +1,68 @@
 from fastapi import APIRouter, HTTPException, Response, Request, Depends
+from starlette.responses import RedirectResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from authlib.integrations.starlette_client import OAuth
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 import os
 import uuid
-import requests
+import json
 from database import get_db
 from models import User, UserRole, Bakery
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-class SessionData(BaseModel):
-    session_id: str
+# OAuth Setup
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
 
-@router.post("/session")
-async def exchange_session(data: SessionData, response: Response, db: AsyncIOMotorDatabase = Depends(get_db)):
-    session_id = data.session_id
-    
+@router.get("/login")
+async def login(request: Request):
+    # Standard Google OAuth Redirect
+    # Ensure redirect_uri matches exactly what you set in Google Console
+    redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', 'https://pasticceria.andreasalardi.it/api/auth/callback')
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@router.get("/callback")
+async def auth_callback(request: Request, response: Response, db: AsyncIOMotorDatabase = Depends(get_db)):
     try:
-        emergent_resp = requests.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id},
-            timeout=10
-        )
-        emergent_resp.raise_for_status()
-        user_data = emergent_resp.json()
+        token = await oauth.google.authorize_access_token(request)
+        user_info = token.get('userinfo')
+        if not user_info:
+            # Try parsing ID Token if userinfo is missing from token response (common in OIDC)
+            user_info = await oauth.google.parse_id_token(request, token)
+            
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid session: {str(e)}")
+        # Log error technically
+        print(f"OAuth Error: {e}")
+        return RedirectResponse(url="/login?error=oauth_failed")
 
-    email = user_data.get("email")
-    name = user_data.get("name")
-    picture = user_data.get("picture")
+    email = user_info.get("email")
+    name = user_info.get("name")
+    picture = user_info.get("picture")
     
     if not email:
-        raise HTTPException(status_code=400, detail="Email not provided by auth provider")
+        raise HTTPException(status_code=400, detail="Email not provided by Google")
 
-    # Find or Create User
+    # --- SaaS Logic: Find or Create User/Bakery ---
+    
     user = await db.users.find_one({"email": email}, {"_id": 0})
     bakery_id = None
     
     if not user:
-        # NEW: SaaS Logic - Create a Bakery for this new User
+        # NEW USER -> Create Bakery
         new_bakery = Bakery(
             name=f"Pasticceria di {name.split()[0]}",
-            owner_user_id="temp", # placeholder
-            # Auto-migrate env vars for the FIRST user only (Admin fallback)
-            wc_url=os.environ.get("WC_URL") if await db.users.count_documents({}) == 0 else None,
-            wc_consumer_key=os.environ.get("WC_CONSUMER_KEY") if await db.users.count_documents({}) == 0 else None,
-            wc_consumer_secret=os.environ.get("WC_CONSUMER_SECRET") if await db.users.count_documents({}) == 0 else None
+            owner_user_id="temp",
+            # No default keys for security, user must add them in Settings
+            created_at=datetime.now(timezone.utc)
         )
         bakery_res = await db.bakeries.insert_one(new_bakery.model_dump(by_alias=True))
         bakery_id = str(bakery_res.inserted_id)
@@ -60,46 +74,49 @@ async def exchange_session(data: SessionData, response: Response, db: AsyncIOMot
             role=UserRole.ADMIN,
             bakery_id=bakery_id
         )
-        # Update owner correctly
+        # Link owner
         await db.bakeries.update_one({"_id": bakery_res.inserted_id}, {"$set": {"owner_user_id": new_user.user_id}})
         
         user_dict = new_user.model_dump()
         await db.users.insert_one(user_dict)
         user = user_dict
     else:
-        # Update profile
+        # Existing User -> Update Profile
         await db.users.update_one(
             {"email": email},
             {"$set": {"name": name, "picture": picture}}
         )
-        # If existing user has no bakery (migration), create one
-        if not user.get("bakery_id"):
-             # Migration logic here if needed, or assume manual fix
-             pass
+        bakery_id = user.get("bakery_id")
 
-    # Create Session
+    # --- Session Creation ---
     session_token = str(uuid.uuid4())
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     
     await db.user_sessions.insert_one({
         "user_id": user["user_id"],
-        "bakery_id": user.get("bakery_id"), # Store tenant in session for speed
+        "bakery_id": bakery_id,
         "session_token": session_token,
         "expires_at": expires_at,
         "created_at": datetime.now(timezone.utc)
     })
 
+    # Redirect to Frontend Root
+    response = RedirectResponse(url="/")
+    
+    # Set Secure Cookie
+    # IMPORTANT: Domain should be omitted to allow subdomains OR set strictly if needed.
+    # For 'pasticceria.andreasalardi.it', omitting domain usually defaults to host.
     response.set_cookie(
         key="session_token",
         value=session_token,
         httponly=True,
         secure=True, 
-        samesite="none",
+        samesite="lax", # Lax is better for top-level navigation redirect
         max_age=7 * 24 * 60 * 60,
         path="/"
     )
     
-    return user
+    return response
 
 @router.get("/me")
 async def get_current_user(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
