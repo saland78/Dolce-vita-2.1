@@ -13,6 +13,10 @@ export const login = async (sessionId) => (await api.post('/api/auth/session', {
 export const getCurrentUser = async () => (await api.get('/api/auth/me')).data;
 export const logout = async () => (await api.post('/api/auth/logout')).data;
 
+// Settings (NEW)
+export const getSettings = async () => (await api.get('/api/settings')).data;
+export const updateSettings = async (data) => (await api.put('/api/settings', data)).data;
+
 // Orders
 export const getStats = async () => (await api.get('/api/orders/stats')).data;
 export const getSalesHistory = async (range) => (await api.get(`/api/orders/sales-history?range=${range || '7d'}`)).data;
@@ -23,7 +27,7 @@ export const simulateOrder = async () => (await api.post('/api/orders/simulate')
 
 // Production Plan
 export const getProductionPlan = async (date) => (await api.get(`/api/orders/production-plan?date=${date}`)).data;
-export const toggleProductionStatus = async (data) => (await api.post('/api/orders/production-plan/toggle', data)).data; // NEW
+export const toggleProductionStatus = async (data) => (await api.post('/api/orders/production-plan/toggle', data)).data;
 
 // Inventory & Products
 export const getIngredients = async () => (await api.get('/api/inventory/ingredients')).data;

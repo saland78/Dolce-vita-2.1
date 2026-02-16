@@ -59,6 +59,8 @@ const Layout = ({ children }) => {
           <p className="px-4 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Catalogo</p>
           <SidebarItem icon={CakeSlice} label="Prodotti Finiti" to="/products" active={location.pathname === '/products'} />
           <SidebarItem icon={Box} label="Materie Prime" to="/inventory" active={location.pathname === '/inventory'} />
+          <div className="my-4 border-t border-border mx-2"></div>
+          <SidebarItem icon={Settings} label="Impostazioni" to="/settings" active={location.pathname === '/settings'} />
         </nav>
 
         <div className="pt-6 border-t border-border space-y-4">

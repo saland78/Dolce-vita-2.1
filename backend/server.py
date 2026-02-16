@@ -5,7 +5,7 @@ import os
 import logging
 import asyncio
 from pathlib import Path
-from routes import orders, inventory, auth_routes, customers
+from routes import orders, inventory, auth_routes, customers, settings
 from database import client
 from services.woocommerce_sync import sync_woocommerce
 
@@ -14,13 +14,11 @@ load_dotenv(ROOT_DIR / '.env')
 
 app = FastAPI(title="BakeryOS API")
 
-# SECURITY: Load allowed origins from env, default to specific frontend
-# In production, this should be comma-separated list of customer domains
 allowed_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,https://bakeryos.app').split(',')
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True, # Required for HttpOnly Cookies
+    allow_credentials=True,
     allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,7 +26,6 @@ app.add_middleware(
 
 @app.middleware("http")
 async def fix_proxy_headers(request: Request, call_next):
-    # Security: Trust proxies only if configured (e.g. Nginx/Traefik)
     forwarded_proto = request.headers.get("x-forwarded-proto")
     if forwarded_proto:
         request.scope["scheme"] = forwarded_proto
@@ -39,6 +36,7 @@ api_router.include_router(orders.router)
 api_router.include_router(inventory.router)
 api_router.include_router(auth_routes.router)
 api_router.include_router(customers.router)
+api_router.include_router(settings.router)
 
 @api_router.get("/")
 async def root():
