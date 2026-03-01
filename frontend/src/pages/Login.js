@@ -3,13 +3,10 @@ import { ChefHat } from 'lucide-react';
 
 const Login = () => {
     const handleLogin = () => {
-        // Direct redirect to Backend Auth Endpoint
-        // Backend will handle Google redirection and Cookie setting
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
-        // If on same domain (proxy), url is just /api/auth/login
-        // If dev, it might be http://localhost:8001/api/auth/login
-        
-        window.location.href = `${backendUrl}/api/auth/login`;
+        // USE RELATIVE PATH
+        // This ensures we stay on the same domain (e.g. pasticceria.andreasalardi.it)
+        // Nginx will proxy /api to the backend container automatically.
+        window.location.href = "/api/auth/login";
     };
 
     return (
