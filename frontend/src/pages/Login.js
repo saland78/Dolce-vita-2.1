@@ -3,10 +3,9 @@ import { ChefHat } from 'lucide-react';
 
 const Login = () => {
     const handleLogin = () => {
-        // USE RELATIVE PATH
-        // This ensures we stay on the same domain (e.g. pasticceria.andreasalardi.it)
-        // Nginx will proxy /api to the backend container automatically.
-        window.location.href = "/api/auth/login";
+        // Fallback for development/preview, absolute URL for production if set
+        const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
+        window.location.href = `${backendUrl}/api/auth/login`;
     };
 
     return (

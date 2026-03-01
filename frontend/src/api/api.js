@@ -1,10 +1,14 @@
 import axios from 'axios';
 
-// USE RELATIVE PATH
-// Nginx handles the proxying from /api to the backend container.
-// This works perfectly in production without needing build-time env vars.
+// Dynamic Base URL logic
+// If REACT_APP_BACKEND_URL is set (Production/Hetzner), use it (e.g., https://pasticceria.../api)
+// If not set (Dev/Preview where port is proxied or relative), use /api
+const backendUrl = process.env.REACT_APP_BACKEND_URL 
+  ? `${process.env.REACT_APP_BACKEND_URL}/api`
+  : "/api";
+
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: backendUrl,
   withCredentials: true,
 });
 
