@@ -1,36 +1,31 @@
 version: '3.8'
 
 services:
-  # 1. FRONTEND
   frontend:
     build: ./frontend
     container_name: bakeryos-frontend
     restart: always
     environment:
-      # In Nginx setup, /api is proxied, so backend URL is relative or absolute domain
       - REACT_APP_BACKEND_URL=https://pasticceria.andreasalardi.it
     expose:
       - "3000"
 
-  # 2. BACKEND
   backend:
     build: ./backend
     container_name: bakeryos-backend
     restart: always
+    env_file: .env
     environment:
       - MONGO_URL=mongodb://mongo:27017
       - DB_NAME=bakeryos_production
-      # Auth Config - FILL THESE IN PRODUCTION
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - SECRET_KEY=${SECRET_KEY}
+      # Force absolute production URL for redirects
+      - GOOGLE_REDIRECT_URI=https://pasticceria.andreasalardi.it/api/auth/callback
       - CORS_ORIGINS=https://pasticceria.andreasalardi.it
     expose:
       - "8001"
     depends_on:
       - mongo
 
-  # 3. DATABASE
   mongo:
     image: mongo:6.0
     container_name: bakeryos-mongo
@@ -38,7 +33,6 @@ services:
     volumes:
       - mongo_data:/data/db
 
-  # 4. REVERSE PROXY (NGINX)
   nginx:
     image: nginx:alpine
     container_name: bakeryos-nginx
@@ -53,6 +47,13 @@ services:
     depends_on:
       - frontend
       - backend
+
+  certbot:
+    image: certbot/certbot
+    container_name: bakeryos-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
 
 volumes:
   mongo_data:
