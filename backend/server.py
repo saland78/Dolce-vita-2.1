@@ -1,19 +1,52 @@
-from fastapi import FastAPI, APIRouter, Request
+from fastapi import FastAPI, APIRouter, Request, Response
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 import os
 import logging
 import asyncio
+import traceback
 from pathlib import Path
 from routes import orders, inventory, auth_routes, customers, settings, webhooks_woocommerce, production
 from database import client, db
 from services.woocommerce_sync import sync_woocommerce
 
+# Load Env
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# --- B. ENV VALIDATION ---
+required_vars = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SECRET_KEY", "MONGO_URL"]
+missing_vars = [v for v in required_vars if not os.environ.get(v)]
+if missing_vars:
+    logging.error(f"CRITICAL: Missing required environment variables: {', '.join(missing_vars)}")
+    # We don't raise RuntimeError here to allow the container to start and show logs, 
+    # but the app will be unstable. Better to crash? 
+    # User requested "Se anche una sola manca -> l'app NON parte".
+    raise RuntimeError(f"Missing environment variables: {', '.join(missing_vars)}")
+
 app = FastAPI(title="BakeryOS API")
+
+# --- A. GLOBAL EXCEPTION HANDLER ---
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global Exception: {str(exc)}")
+    logger.error(traceback.format_exc())
+    
+    # In production, hide details. In dev/preview, showing detail helps.
+    # We are in dev/preview mostly.
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal Server Error",
+            "message": str(exc), # Helpful for debug
+            "path": request.url.path
+        }
+    )
 
 allowed_origins = os.environ.get('CORS_ORIGINS', 'https://pasticceria.andreasalardi.it,http://localhost:3000').split(',')
 
@@ -24,10 +57,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# NOTE: SessionMiddleware REMOVED/Disabled because we now handle State manually via Mongo.
-# This prevents cookie conflict/overwrite issues.
-# app.add_middleware(SessionMiddleware, ...) 
 
 @app.middleware("http")
 async def fix_proxy_headers(request: Request, call_next):
@@ -51,12 +80,8 @@ async def root():
 
 app.include_router(api_router)
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 @app.on_event("startup")
 async def startup_event():
-    # Ensure Index for OAuth States (TTL 10 mins)
     try:
         await db.oauth_states.create_index("created_at", expireAfterSeconds=600)
         logger.info("Created TTL index for OAuth states")
