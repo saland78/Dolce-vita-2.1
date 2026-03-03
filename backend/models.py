@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, validator
 from typing import List, Optional, Dict
 from datetime import datetime, timezone
 import uuid
@@ -51,13 +51,17 @@ class Ingredient(IngredientBase):
 
 class ProductBase(BaseModel):
     name: str
-    description: str
+    description: Optional[str] = None
     price: float
     category: str
     image_url: Optional[str] = None
     sku: Optional[str] = None
     stock_status: Optional[str] = None
-    source: str = "manual"
+    source: Optional[str] = "manual"
+
+    @validator('source', pre=True)
+    def handle_none_source(cls, v):
+        return v or "manual"
 
 class ProductCreate(ProductBase):
     pass

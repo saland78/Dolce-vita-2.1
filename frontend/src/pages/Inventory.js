@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { getIngredients, seedInventory } from '../api/api';
-import { AlertTriangle, Plus, X, Check } from 'lucide-react';
+import { getIngredients } from '../api/api';
+import { AlertTriangle, Plus, X, Check, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
 
 const Inventory = () => {
     const [ingredients, setIngredients] = useState([]);
@@ -29,36 +28,43 @@ const Inventory = () => {
 
     useEffect(() => {
         fetchIngredients();
-        // seedInventory().then(() => fetchIngredients()); // Disable auto-seed for production feel
     }, []);
 
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
-            // Use axios directly or add createIngredient to api.js
-            // For speed, using the configured api instance from api.js would be better, 
-            // but let's assume we import api or use axios with base URL.
-            // Let's rely on api.js being properly configured.
-            
-            // Re-importing api instance dynamically to avoid circular deps if any, 
-            // or just using the globally configured axios if possible. 
-            // Better: use the one from '../api/api'
+            // Robust parsing: Default to 0 if invalid/empty
+            const payload = {
+                name: newIng.name,
+                unit: newIng.unit,
+                quantity: parseFloat(newIng.quantity) || 0,
+                reorder_threshold: parseFloat(newIng.reorder_threshold) || 0,
+                cost_per_unit: parseFloat(newIng.cost_per_unit) || 0
+            };
+
+            // Dynamic import to avoid circular dependency issues if any
             const api = (await import('../api/api')).default;
             
-            await api.post('/api/inventory/ingredients', {
-                ...newIng,
-                quantity: parseFloat(newIng.quantity),
-                reorder_threshold: parseFloat(newIng.reorder_threshold),
-                cost_per_unit: parseFloat(newIng.cost_per_unit)
-            });
+            await api.post('/api/inventory/ingredients', payload);
             
             toast.success("Ingrediente aggiunto!");
             setIsModalOpen(false);
             setNewIng({ name: "", quantity: "", unit: "kg", reorder_threshold: "", cost_per_unit: "" });
             fetchIngredients();
         } catch (err) {
-            toast.error("Errore nell'aggiunta ingrediente");
             console.error(err);
+            // Check for API error response details
+            if (err.response && err.response.data && err.response.data.detail) {
+                // Formatting validation errors nicely
+                const details = err.response.data.detail;
+                if (Array.isArray(details)) {
+                    toast.error(`Errore: ${details.map(d => d.msg).join(", ")}`);
+                } else {
+                    toast.error(`Errore: ${details}`);
+                }
+            } else {
+                toast.error("Errore nell'aggiunta ingrediente");
+            }
         }
     };
 
@@ -102,7 +108,9 @@ const Inventory = () => {
                                 <tr key={ing._id} className="hover:bg-muted/20 transition-colors">
                                     <td className="p-4 font-medium text-foreground">{ing.name}</td>
                                     <td className="p-4">
-                                        <span className="font-mono text-lg font-semibold">{ing.quantity}</span> 
+                                        <span className={`font-mono text-lg font-semibold ${isLow ? 'text-red-600' : ''}`}>
+                                            {ing.quantity}
+                                        </span> 
                                         <span className="text-muted-foreground ml-1 text-sm">{ing.unit}</span>
                                     </td>
                                     <td className="p-4 text-muted-foreground">{ing.reorder_threshold} {ing.unit}</td>
@@ -154,8 +162,8 @@ const Inventory = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-muted-foreground mb-1">Quantità</label>
                                     <input 
-                                        required
                                         type="number" 
+                                        step="0.01"
                                         className="w-full p-2 rounded-lg border border-border bg-muted/20 focus:ring-2 focus:ring-accent outline-none"
                                         placeholder="0.00"
                                         value={newIng.quantity}
@@ -180,8 +188,8 @@ const Inventory = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-muted-foreground mb-1">Soglia Minima</label>
                                     <input 
-                                        required
                                         type="number" 
+                                        step="0.01"
                                         className="w-full p-2 rounded-lg border border-border bg-muted/20 focus:ring-2 focus:ring-accent outline-none"
                                         placeholder="10"
                                         value={newIng.reorder_threshold}
@@ -191,7 +199,6 @@ const Inventory = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-muted-foreground mb-1">Costo (€/unità)</label>
                                     <input 
-                                        required
                                         type="number" 
                                         step="0.01"
                                         className="w-full p-2 rounded-lg border border-border bg-muted/20 focus:ring-2 focus:ring-accent outline-none"
