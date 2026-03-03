@@ -28,25 +28,28 @@ class Bakery(BaseModel):
 
 class User(BaseModel):
     user_id: str = Field(default_factory=lambda: f"user_{uuid.uuid4().hex[:12]}")
-    bakery_id: Optional[str] = None  # Link to the tenant
+    bakery_id: Optional[str] = None
     email: str
     name: str
     picture: Optional[str] = None
     role: UserRole = UserRole.ADMIN
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class Ingredient(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
-    bakery_id: str # Tenant ID
+class IngredientBase(BaseModel):
     name: str
     quantity: float
     unit: str
     reorder_threshold: float
     cost_per_unit: float
 
-class Product(BaseModel):
+class IngredientCreate(IngredientBase):
+    pass
+
+class Ingredient(IngredientBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
-    bakery_id: str # Tenant ID
+    bakery_id: str
+
+class ProductBase(BaseModel):
     name: str
     description: str
     price: float
@@ -56,6 +59,13 @@ class Product(BaseModel):
     stock_status: Optional[str] = None
     source: str = "manual"
 
+class ProductCreate(ProductBase):
+    pass
+
+class Product(ProductBase):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
+    bakery_id: str
+
 class OrderItem(BaseModel):
     product_id: str
     product_name: str
@@ -64,7 +74,7 @@ class OrderItem(BaseModel):
 
 class Order(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
-    bakery_id: str # Tenant ID
+    bakery_id: str
     customer_name: str
     customer_email: Optional[str] = None
     source: str = "woocommerce"

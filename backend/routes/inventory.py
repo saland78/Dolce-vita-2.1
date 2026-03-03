@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List
-from models import Ingredient, Product
+from models import Ingredient, IngredientCreate, Product, ProductCreate
 from database import get_db
 from dependencies import get_current_user_and_bakery
 
@@ -18,12 +18,18 @@ async def get_ingredients(
 
 @router.post("/ingredients", response_model=Ingredient)
 async def create_ingredient(
-    ing: Ingredient, 
+    ing_in: IngredientCreate, 
     db: AsyncIOMotorDatabase = Depends(get_db),
     context: tuple = Depends(get_current_user_and_bakery)
 ):
     _, bakery_id = context
-    ing.bakery_id = bakery_id # Force tenant
+    
+    # Manually create full Ingredient with bakery_id
+    ing = Ingredient(
+        bakery_id=bakery_id,
+        **ing_in.model_dump()
+    )
+    
     await db.ingredients.insert_one(ing.model_dump(by_alias=True))
     return ing
 
@@ -38,12 +44,17 @@ async def get_products(
 
 @router.post("/products", response_model=Product)
 async def create_product(
-    prod: Product, 
+    prod_in: ProductCreate, 
     db: AsyncIOMotorDatabase = Depends(get_db),
     context: tuple = Depends(get_current_user_and_bakery)
 ):
     _, bakery_id = context
-    prod.bakery_id = bakery_id
+    
+    prod = Product(
+        bakery_id=bakery_id,
+        **prod_in.model_dump()
+    )
+    
     await db.products.insert_one(prod.model_dump(by_alias=True))
     return prod
 
@@ -57,7 +68,7 @@ async def get_product_orders(
     pipeline = [
         {
             "$match": {
-                "bakery_id": bakery_id # Tenant
+                "bakery_id": bakery_id
             }
         },
         {"$unwind": "$items"},
@@ -80,5 +91,3 @@ async def get_product_orders(
             r["created_at"] = r["created_at"].isoformat()
             
     return results
-
-# Seed removed or needs update. For multi-tenant, seeding should be explicit.
