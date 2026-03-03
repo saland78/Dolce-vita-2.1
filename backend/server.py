@@ -6,7 +6,7 @@ import os
 import logging
 import asyncio
 from pathlib import Path
-from routes import orders, inventory, auth_routes, customers, settings
+from routes import orders, inventory, auth_routes, customers, settings, webhooks_woocommerce
 from database import client
 from services.woocommerce_sync import sync_woocommerce
 
@@ -16,7 +16,6 @@ load_dotenv(ROOT_DIR / '.env')
 app = FastAPI(title="BakeryOS API")
 
 # CORS Setup
-# For production, be specific. For now, allow the domain and localhost
 allowed_origins = os.environ.get('CORS_ORIGINS', 'https://pasticceria.andreasalardi.it,http://localhost:3000').split(',')
 
 app.add_middleware(
@@ -27,17 +26,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Session Middleware (Required for Authlib)
-# Use a strong secret in production!
 app.add_middleware(
     SessionMiddleware, 
-    secret_key=os.environ.get("SECRET_KEY", "super_secret_dev_key_change_me_in_prod"),
-    https_only=True # Enable for HTTPS production
+    secret_key=os.environ.get("SECRET_KEY", "super_secret_dev_key"),
+    https_only=True
 )
 
 @app.middleware("http")
 async def fix_proxy_headers(request: Request, call_next):
-    # Important for Nginx Reverse Proxy (SSL termination)
     forwarded_proto = request.headers.get("x-forwarded-proto")
     if forwarded_proto:
         request.scope["scheme"] = forwarded_proto
@@ -49,6 +45,7 @@ api_router.include_router(inventory.router)
 api_router.include_router(auth_routes.router)
 api_router.include_router(customers.router)
 api_router.include_router(settings.router)
+api_router.include_router(webhooks_woocommerce.router) # NEW WEBHOOK ROUTER
 
 @api_router.get("/")
 async def root():
