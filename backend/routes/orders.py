@@ -11,9 +11,9 @@ from dependencies import get_current_user_and_bakery
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 class ProductionStatusUpdate(BaseModel):
-    product_name: str
+    product_id: str # CHANGED from product_name
     completed: bool
-    date: str # YYYY-MM-DD
+    date: str
 
 @router.get("/", response_model=List[Order])
 async def get_orders(
@@ -24,7 +24,6 @@ async def get_orders(
 ):
     _, bakery_id = context
     
-    # Filter by TENANT
     query = {"bakery_id": bakery_id}
     
     if not archived:
@@ -48,7 +47,7 @@ async def create_order(
     total = sum(item.quantity * item.unit_price for item in order_in.items)
     
     order = Order(
-        bakery_id=bakery_id, # Tenant
+        bakery_id=bakery_id, 
         customer_name=order_in.customer_name,
         customer_email=order_in.customer_email,
         items=order_in.items,
@@ -163,7 +162,6 @@ async def get_sales_history(
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
         group_format = {"hour": {"$hour": "$created_at"}}
     else:
-        # Default fallback
         start_date = now - timedelta(days=7)
         group_format = {"year": {"$year": "$created_at"}, "month": {"$month": "$created_at"}, "day": {"$dayOfMonth": "$created_at"}}
         
@@ -220,7 +218,7 @@ async def get_sales_history(
             
     return formatted
 
-# --- PRODUCTION PLAN ---
+# --- PRODUCTION PLAN IMPROVED ---
 
 @router.get("/production-plan")
 async def get_production_plan(
@@ -241,7 +239,8 @@ async def get_production_plan(
         },
         {"$unwind": "$items"},
         {"$group": {
-            "_id": "$items.product_name",
+            "_id": "$items.product_id", # GROUP BY ID now
+            "original_name": {"$first": "$items.product_name"},
             "total_quantity": {"$sum": "$items.quantity"},
             "orders": {"$push": {
                 "customer": "$customer_name",
@@ -249,20 +248,35 @@ async def get_production_plan(
                 "notes": "$notes"
             }}
         }},
+        # Join with Products for Image & Current Name
+        {"$lookup": {
+            "from": "products",
+            "localField": "_id",
+            "foreignField": "_id",
+            "as": "product_info"
+        }},
+        {"$unwind": {"path": "$product_info", "preserveNullAndEmptyArrays": True}},
+        {"$project": {
+            "product_name": {"$ifNull": ["$product_info.name", "$original_name"]},
+            "image_url": "$product_info.image_url",
+            "total_quantity": 1,
+            "orders": 1
+        }},
         {"$sort": {"total_quantity": -1}}
     ]
     
     plan = await db.orders.aggregate(pipeline).to_list(100)
     
-    # Merge with persistent status (Scoped to Bakery)
+    # Merge with persistent status (Scoped to Bakery and Product ID)
     statuses = await db.production_status.find({
         "bakery_id": bakery_id,
         "date": target_date
     }).to_list(1000)
     
-    status_map = {s["product_name"]: s["completed"] for s in statuses}
+    status_map = {s["product_id"]: s["completed"] for s in statuses}
     
     for item in plan:
+        # _id is product_id now
         item["completed"] = status_map.get(item["_id"], False)
         
     return plan
@@ -279,7 +293,7 @@ async def toggle_production_status(
         {
             "bakery_id": bakery_id, # TENANT
             "date": update.date,
-            "product_name": update.product_name
+            "product_id": update.product_id # CHANGED
         },
         {
             "$set": {

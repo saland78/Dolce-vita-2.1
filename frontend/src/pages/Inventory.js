@@ -42,10 +42,10 @@ const Inventory = () => {
                 cost_per_unit: parseFloat(newIng.cost_per_unit) || 0
             };
 
-            // Dynamic import to avoid circular dependency issues if any
             const api = (await import('../api/api')).default;
             
-            await api.post('/api/inventory/ingredients', payload);
+            // FIX: Removed /api prefix because baseURL already has /api
+            await api.post('/inventory/ingredients', payload);
             
             toast.success("Ingrediente aggiunto!");
             setIsModalOpen(false);
@@ -53,9 +53,7 @@ const Inventory = () => {
             fetchIngredients();
         } catch (err) {
             console.error(err);
-            // Check for API error response details
             if (err.response && err.response.data && err.response.data.detail) {
-                // Formatting validation errors nicely
                 const details = err.response.data.detail;
                 if (Array.isArray(details)) {
                     toast.error(`Errore: ${details.map(d => d.msg).join(", ")}`);

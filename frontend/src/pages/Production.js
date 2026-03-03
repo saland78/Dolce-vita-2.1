@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { getProductionPlan, toggleProductionStatus } from '../api/api';
-import { ChefHat, ClipboardList, CheckCircle } from 'lucide-react';
-import { Calendar } from 'lucide-react';
+import { CheckCircle, Calendar, CakeSlice } from 'lucide-react';
 import { format } from 'date-fns';
 
 const Production = () => {
@@ -23,25 +22,24 @@ const Production = () => {
 
     useEffect(() => {
         fetchPlan();
-        const interval = setInterval(fetchPlan, 10000); // Polling for sync across devices
+        const interval = setInterval(fetchPlan, 10000); 
         return () => clearInterval(interval);
     }, []);
 
-    const handleToggle = async (productName, currentStatus) => {
+    const handleToggle = async (product_id, currentStatus) => {
         // Optimistic UI update
         setPlan(prev => prev.map(item => 
-            item._id === productName ? { ...item, completed: !currentStatus } : item
+            item._id === product_id ? { ...item, completed: !currentStatus } : item
         ));
 
         try {
             await toggleProductionStatus({
-                product_name: productName,
+                product_id: product_id, // Use ID
                 date: today,
                 completed: !currentStatus
             });
         } catch (e) {
             console.error("Failed to toggle status", e);
-            // Revert on failure
             fetchPlan();
         }
     };
@@ -72,27 +70,40 @@ const Production = () => {
                     plan.map((item, idx) => (
                         <div 
                             key={idx} 
-                            className={`bg-white p-6 rounded-xl border transition-all cursor-pointer group
+                            className={`bg-white p-6 rounded-xl border transition-all cursor-pointer group flex gap-4
                                 ${item.completed ? 'border-green-200 bg-green-50 opacity-75' : 'border-border shadow-sm hover:border-accent'}`}
                             onClick={() => handleToggle(item._id, item.completed)}
                         >
-                            <div className="flex justify-between items-start mb-4">
-                                <h2 className={`text-2xl font-serif font-bold ${item.completed ? 'text-green-800 line-through' : 'text-primary'}`}>
-                                    {item._id}
-                                </h2>
-                                <span className="text-4xl font-bold text-accent">{item.total_quantity}</span>
-                            </div>
-                            
-                            <div className="space-y-2">
-                                {item.orders.map((ord, oIdx) => (
-                                    <div key={oIdx} className="text-sm flex justify-between items-center text-muted-foreground border-b border-dashed border-border last:border-0 pb-1">
-                                        <span>{ord.qty}x per {ord.customer}</span>
-                                        {ord.notes && <span className="bg-yellow-100 text-yellow-800 text-[10px] px-1.5 rounded ml-2">Note: {ord.notes}</span>}
+                            {/* Image */}
+                            <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                                {item.image_url ? (
+                                    <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                        <CakeSlice size={24} />
                                     </div>
-                                ))}
+                                )}
+                            </div>
+
+                            <div className="flex-1">
+                                <div className="flex justify-between items-start mb-2">
+                                    <h2 className={`text-xl font-serif font-bold ${item.completed ? 'text-green-800 line-through' : 'text-primary'}`}>
+                                        {item.product_name}
+                                    </h2>
+                                    <span className="text-3xl font-bold text-accent">{item.total_quantity}</span>
+                                </div>
+                                
+                                <div className="space-y-1">
+                                    {item.orders.map((ord, oIdx) => (
+                                        <div key={oIdx} className="text-sm flex justify-between items-center text-muted-foreground border-b border-dashed border-border last:border-0 pb-1">
+                                            <span>{ord.qty}x {ord.customer}</span>
+                                            {ord.notes && <span className="bg-yellow-100 text-yellow-800 text-[10px] px-1.5 rounded ml-2">{ord.notes}</span>}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                             
-                            <div className="mt-4 pt-4 border-t border-border flex justify-end">
+                            <div className="flex items-center">
                                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors
                                     ${item.completed ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 group-hover:border-accent'}`}>
                                     {item.completed && <CheckCircle size={16} />}
