@@ -6,7 +6,7 @@ import os
 import logging
 import asyncio
 from pathlib import Path
-from routes import orders, inventory, auth_routes, customers, settings, webhooks_woocommerce
+from routes import orders, inventory, auth_routes, customers, settings, webhooks_woocommerce, production
 from database import client
 from services.woocommerce_sync import sync_woocommerce
 
@@ -15,7 +15,6 @@ load_dotenv(ROOT_DIR / '.env')
 
 app = FastAPI(title="BakeryOS API")
 
-# CORS Setup
 allowed_origins = os.environ.get('CORS_ORIGINS', 'https://pasticceria.andreasalardi.it,http://localhost:3000').split(',')
 
 app.add_middleware(
@@ -45,7 +44,8 @@ api_router.include_router(inventory.router)
 api_router.include_router(auth_routes.router)
 api_router.include_router(customers.router)
 api_router.include_router(settings.router)
-api_router.include_router(webhooks_woocommerce.router) # NEW WEBHOOK ROUTER
+api_router.include_router(webhooks_woocommerce.router)
+api_router.include_router(production.router) # NEW
 
 @api_router.get("/")
 async def root():
