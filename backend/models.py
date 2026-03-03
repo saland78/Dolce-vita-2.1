@@ -24,19 +24,20 @@ class Bakery(BaseModel):
     wc_url: Optional[str] = None
     wc_consumer_key: Optional[str] = None
     wc_consumer_secret: Optional[str] = None
-    wc_webhook_secret: Optional[str] = None # NEW
+    wc_webhook_secret: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class User(BaseModel):
     user_id: str = Field(default_factory=lambda: f"user_{uuid.uuid4().hex[:12]}")
     bakery_id: Optional[str] = None
+    google_sub: Optional[str] = None # NEW: Google Subject ID (Stable Identifier)
     email: str
     name: str
     picture: Optional[str] = None
     role: UserRole = UserRole.ADMIN
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_login_at: Optional[datetime] = None
 
-# --- INVENTORY ---
 class IngredientBase(BaseModel):
     name: str
     quantity: float
@@ -51,18 +52,17 @@ class Ingredient(IngredientBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     bakery_id: str
 
-# --- PRODUCTS & RECIPES ---
 class RecipeIngredient(BaseModel):
-    name: str # Link by name for simplicity in MVP, or use ingredient_id
-    quantity_per_unit: float # Quantity needed for 1 unit/kg of product
+    name: str
+    quantity_per_unit: float
     unit: str
 
 class Recipe(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     bakery_id: str
-    product_id: str # Link to Product
+    product_id: str
     product_name: str
-    base_weight_kg: float = 1.0 # Reference weight for the recipe
+    base_weight_kg: float = 1.0
     ingredients: List[RecipeIngredient] = []
 
 class ProductBase(BaseModel):
@@ -86,13 +86,12 @@ class Product(ProductBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     bakery_id: str
 
-# --- ORDERS ---
 class OrderItemMeta(BaseModel):
     writing: Optional[str] = None
     flavor: Optional[str] = None
     allergens_note: Optional[str] = None
     weight_kg: Optional[float] = None
-    raw: List[Dict[str, Any]] = [] # Keep raw meta for debug
+    raw: List[Dict[str, Any]] = []
 
 class OrderItem(BaseModel):
     wc_item_id: Optional[str] = None
@@ -100,7 +99,7 @@ class OrderItem(BaseModel):
     product_name: str
     quantity: int
     unit_price: float
-    meta: OrderItemMeta = Field(default_factory=OrderItemMeta) # NEW: Detailed metadata
+    meta: OrderItemMeta = Field(default_factory=OrderItemMeta)
 
 class OrderCustomer(BaseModel):
     first_name: str = ""
@@ -110,7 +109,7 @@ class OrderCustomer(BaseModel):
 
 class Order(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
-    wc_order_id: Optional[str] = None # Original WC ID
+    wc_order_id: Optional[str] = None
     bakery_id: str
     customer: OrderCustomer = Field(default_factory=OrderCustomer)
     source: str = "woocommerce"
@@ -119,11 +118,8 @@ class Order(BaseModel):
     status: OrderStatus = OrderStatus.RECEIVED
     payment_status: str = "unpaid"
     archived: bool = False
-    
-    # NEW: Pickup/Delivery Info
-    pickup_date: Optional[str] = None # YYYY-MM-DD
-    pickup_time: Optional[str] = None # HH:MM
-    
+    pickup_date: Optional[str] = None
+    pickup_time: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     notes: Optional[str] = None

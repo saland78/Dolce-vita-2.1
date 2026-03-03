@@ -7,7 +7,7 @@ import logging
 import asyncio
 from pathlib import Path
 from routes import orders, inventory, auth_routes, customers, settings, webhooks_woocommerce, production
-from database import client
+from database import client, db
 from services.woocommerce_sync import sync_woocommerce
 
 ROOT_DIR = Path(__file__).parent
@@ -25,11 +25,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(
-    SessionMiddleware, 
-    secret_key=os.environ.get("SECRET_KEY", "super_secret_dev_key"),
-    https_only=True
-)
+# NOTE: SessionMiddleware REMOVED/Disabled because we now handle State manually via Mongo.
+# This prevents cookie conflict/overwrite issues.
+# app.add_middleware(SessionMiddleware, ...) 
 
 @app.middleware("http")
 async def fix_proxy_headers(request: Request, call_next):
@@ -45,7 +43,7 @@ api_router.include_router(auth_routes.router)
 api_router.include_router(customers.router)
 api_router.include_router(settings.router)
 api_router.include_router(webhooks_woocommerce.router)
-api_router.include_router(production.router) # NEW
+api_router.include_router(production.router)
 
 @api_router.get("/")
 async def root():
@@ -58,6 +56,13 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup_event():
+    # Ensure Index for OAuth States (TTL 10 mins)
+    try:
+        await db.oauth_states.create_index("created_at", expireAfterSeconds=600)
+        logger.info("Created TTL index for OAuth states")
+    except Exception as e:
+        logger.warning(f"Could not create index: {e}")
+        
     asyncio.create_task(sync_woocommerce())
 
 @app.on_event("shutdown")

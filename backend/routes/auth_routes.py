@@ -1,50 +1,156 @@
-from fastapi import APIRouter, HTTPException, Response, Request, Depends
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel
-from typing import Optional
+import secrets
+import logging
 from datetime import datetime, timedelta, timezone
+from fastapi import APIRouter, Request, Response, HTTPException, Depends
+from starlette.responses import RedirectResponse
+from authlib.integrations.starlette_client import OAuth
+from motor.motor_asyncio import AsyncIOMotorDatabase
 import os
 import uuid
-import requests
+import json
 from database import get_db
 from models import User, UserRole, Bakery
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-class SessionData(BaseModel):
-    session_id: str
+# --- OAUTH CONFIG ---
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
 
-@router.post("/session")
-async def exchange_session(data: SessionData, response: Response, db: AsyncIOMotorDatabase = Depends(get_db)):
+# --- UTILS ---
+def generate_state():
+    return secrets.token_urlsafe(32) # Secure 256-bit random string
+
+async def store_state(db: AsyncIOMotorDatabase, state: str):
     """
-    EXCHANGE EMERGENT SESSION (Preview Compatible)
+    Store OAuth state in MongoDB with TTL (Time To Live).
+    Prevents Replay Attacks and Session Fixation.
     """
-    session_id = data.session_id
+    await db.oauth_states.insert_one({
+        "state": state,
+        "created_at": datetime.now(timezone.utc)
+    })
+    # Ensure index exists (should be done on startup really)
+    # await db.oauth_states.create_index("created_at", expireAfterSeconds=600) # 10 minutes
+
+async def verify_and_consume_state(db: AsyncIOMotorDatabase, state: str):
+    """
+    Verify state exists and delete it immediately (One-Time Use).
+    """
+    if not state:
+        return False
+    result = await db.oauth_states.find_one_and_delete({"state": state})
+    return result is not None
+
+# --- ROUTES ---
+
+@router.get("/login")
+async def login(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
+    """
+    Initiates Google Login with robust State handling (MongoDB).
+    """
+    redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI')
+    if not redirect_uri:
+        logger.error("GOOGLE_REDIRECT_URI is missing in env")
+        return Response("Internal Config Error: Missing Redirect URI", status_code=500)
+
+    # 1. Generate Secure State
+    state = generate_state()
     
-    try:
-        emergent_resp = requests.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id},
-            timeout=10
-        )
-        emergent_resp.raise_for_status()
-        user_data = emergent_resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid session: {str(e)}")
+    # 2. Store in DB (Shared Storage for multi-container/restart resilience)
+    await store_state(db, state)
+    
+    logger.info(f"Initiating Login. State generated: {state[:8]}... RedirectURI: {redirect_uri}")
+    
+    # 3. Create Authorization URL manually to bypass cookie-session dependence
+    # We use the lower-level 'create_authorization_url' method
+    client = oauth.create_client('google')
+    uri, _ = await client.create_authorization_url(redirect_uri, state=state)
+    
+    return RedirectResponse(uri)
 
-    email = user_data.get("email")
-    name = user_data.get("name")
-    picture = user_data.get("picture")
+@router.get("/callback")
+async def auth_callback(request: Request, response: Response, db: AsyncIOMotorDatabase = Depends(get_db)):
+    """
+    Handles Google Callback with strict State validation.
+    """
+    # 1. Extract State & Code
+    state = request.query_params.get('state')
+    code = request.query_params.get('code')
+    error = request.query_params.get('error')
+    
+    if error:
+        logger.error(f"Google returned error: {error}")
+        return RedirectResponse(url=f"/login?error=google_error&details={error}")
+
+    if not code:
+        logger.error("No code provided")
+        return RedirectResponse(url="/login?error=no_code")
+
+    # 2. Verify State (Nonce)
+    is_valid = await verify_and_consume_state(db, state)
+    if not is_valid:
+        logger.error(f"Invalid State Parameter: {state[:8] if state else 'None'}...")
+        # This is the fix for "Invalid state parameter"
+        return RedirectResponse(url="/login?error=invalid_state")
+
+    try:
+        # 3. Exchange Code for Token (Manual Flow)
+        client = oauth.create_client('google')
+        redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI')
+        
+        # We manually fetch token to avoid authlib looking into session for state
+        token = await client.fetch_access_token(
+            redirect_uri=redirect_uri,
+            code=code,
+            grant_type='authorization_code'
+        )
+        
+        # 4. Get User Info
+        # 'parse_id_token' requires the 'nonce' if used, but we used 'state'.
+        # Standard OIDC often puts user info in id_token.
+        user_info = await client.parse_id_token(token, nonce=None)
+        
+        # Fallback if id_token doesn't have what we need (rare for Google)
+        if not user_info:
+             user_info = await client.userinfo(token=token)
+
+    except Exception as e:
+        logger.error(f"Token Exchange Error: {str(e)}")
+        return RedirectResponse(url="/login?error=token_exchange_failed")
+
+    # 5. Process User (Multi-Tenant Logic)
+    google_sub = user_info.get("sub")
+    email = user_info.get("email")
+    name = user_info.get("name")
+    picture = user_info.get("picture")
     
     if not email:
-        raise HTTPException(status_code=400, detail="Email not provided by auth provider")
+        raise HTTPException(status_code=400, detail="Email not provided by Google")
 
-    # Find or Create User & Bakery
-    user = await db.users.find_one({"email": email}, {"_id": 0})
+    # Strategy: Match by 'google_sub' (Stable). Fallback to 'email' (Migration).
+    user = await db.users.find_one({"google_sub": google_sub}, {"_id": 0})
+    
+    if not user:
+        # Try finding by email (Legacy/Migration)
+        user = await db.users.find_one({"email": email}, {"_id": 0})
+        if user:
+            # Migration: Link existing user to Google Sub
+            await db.users.update_one({"email": email}, {"$set": {"google_sub": google_sub}})
+            logger.info(f"Linked existing user {email} to sub {google_sub}")
+    
     bakery_id = None
     
     if not user:
-        # Create Bakery
+        # BRAND NEW USER -> New Bakery
+        logger.info(f"Registering new user: {email}")
         new_bakery = Bakery(
             name=f"Pasticceria di {name.split()[0]}",
             owner_user_id="temp",
@@ -54,6 +160,7 @@ async def exchange_session(data: SessionData, response: Response, db: AsyncIOMot
         bakery_id = str(bakery_res.inserted_id)
 
         new_user = User(
+            google_sub=google_sub,
             email=email,
             name=name,
             picture=picture,
@@ -61,19 +168,22 @@ async def exchange_session(data: SessionData, response: Response, db: AsyncIOMot
             bakery_id=bakery_id
         )
         await db.bakeries.update_one({"_id": bakery_res.inserted_id}, {"$set": {"owner_user_id": new_user.user_id}})
-        
-        user_dict = new_user.model_dump()
-        await db.users.insert_one(user_dict)
-        user = user_dict
+        await db.users.insert_one(new_user.model_dump())
+        user = new_user.model_dump()
     else:
-        # Update Profile
+        # Update Metadata
         await db.users.update_one(
             {"email": email},
-            {"$set": {"name": name, "picture": picture}}
+            {"$set": {
+                "name": name, 
+                "picture": picture, 
+                "last_login_at": datetime.now(timezone.utc),
+                "google_sub": google_sub # Ensure it's set
+            }}
         )
         bakery_id = user.get("bakery_id")
 
-    # Create Session
+    # 6. Create Session
     session_token = str(uuid.uuid4())
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     
@@ -85,18 +195,21 @@ async def exchange_session(data: SessionData, response: Response, db: AsyncIOMot
         "created_at": datetime.now(timezone.utc)
     })
 
-    # Set Cookie
+    # 7. Response with Cookie
+    response = RedirectResponse(url="/")
+    
+    # Secure Cookie Settings
     response.set_cookie(
         key="session_token",
         value=session_token,
         httponly=True,
-        secure=True, 
-        samesite="none", # 'none' works best in Preview/iFrame
+        secure=True, # MANDATORY FOR PRODUCTION
+        samesite="lax", # Lax allows redirect from external site
         max_age=7 * 24 * 60 * 60,
         path="/"
     )
     
-    return user
+    return response
 
 @router.get("/me")
 async def get_current_user(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
