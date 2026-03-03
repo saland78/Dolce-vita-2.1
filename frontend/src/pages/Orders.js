@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import { getOrders, updateOrderStatus, archiveOrder } from '../api/api';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Archive, RotateCcw } from 'lucide-react';
+import { Archive, RotateCcw, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 import { toast } from 'sonner';
 
 const OrderCard = ({ order, onUpdateStatus, onArchive }) => {
@@ -14,11 +14,21 @@ const OrderCard = ({ order, onUpdateStatus, onArchive }) => {
         delivered: 'border-green-400 bg-green-50/50', 
     };
 
+    // Check allergens
+    const hasAllergens = order.items.some(i => i.meta?.allergens_note);
+
     return (
         <div className={`bg-white p-4 rounded-xl border-l-4 shadow-sm hover:shadow-md transition-all mb-4 ${statusColors[order.status] || 'border-gray-200'}`}>
             <div className="flex justify-between items-start mb-2">
                 <div>
-                    <h4 className="font-bold text-primary">{order.customer_name}</h4>
+                    <h4 className="font-bold text-primary flex items-center gap-2">
+                        {order.customer_name}
+                        {hasAllergens && (
+                            <span title="Contiene Allergeni" className="text-red-600 animate-pulse">
+                                <AlertTriangle size={16} />
+                            </span>
+                        )}
+                    </h4>
                     <p className="text-xs text-muted-foreground">{format(new Date(order.created_at), "d MMM HH:mm", { locale: it })}</p>
                 </div>
                 <span className="font-serif font-bold text-accent">€{order.total_amount}</span>
@@ -114,7 +124,7 @@ const Orders = () => {
         fetchOrders();
         const interval = setInterval(fetchOrders, 5000); 
         return () => clearInterval(interval);
-    }, [showArchived]); // Refresh when toggling archive
+    }, [showArchived]); 
 
     const handleUpdateStatus = async (id, status) => {
         await updateOrderStatus(id, status);

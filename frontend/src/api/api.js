@@ -1,13 +1,12 @@
 import axios from 'axios';
 
 // PREVIEW COMPATIBLE URL
-// Use relative path so Nginx/Proxy handles it
 const api = axios.create({
   baseURL: "/api",
   withCredentials: true,
 });
 
-// Auth (Emergent Style)
+// Auth
 export const login = async (sessionId) => (await api.post('/auth/session', { session_id: sessionId })).data;
 export const getCurrentUser = async () => (await api.get('/auth/me')).data;
 export const logout = async () => (await api.post('/auth/logout')).data;
@@ -26,9 +25,21 @@ export const simulateOrder = async () => (await api.post('/orders/simulate')).da
 
 // Production Plan
 export const getProductionPlan = async (date) => (await api.get(`/orders/production-plan?date=${date}`)).data;
+export const getDailySlots = async () => (await api.get('/orders/daily-slots')).data; // NEW
+export const downloadProductionSheet = async (orderId) => {
+    const response = await api.get(`/orders/${orderId}/production-sheet`, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `scheda_${orderId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+}; // NEW
+
 export const toggleProductionStatus = async (data) => (await api.post('/orders/production-plan/toggle', data)).data;
 
-// Inventory & Products
+// Ingredients & Recipes
+export const getDailyIngredients = async (date) => (await api.get(`/production/ingredients${date ? `?date=${date}` : ''}`)).data; // NEW
 export const getIngredients = async () => (await api.get('/inventory/ingredients')).data;
 export const getProducts = async () => (await api.get('/inventory/products')).data;
 export const getProductOrders = async (productId) => (await api.get(`/inventory/products/${productId}/orders`)).data;
