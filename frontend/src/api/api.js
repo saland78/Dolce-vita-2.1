@@ -1,18 +1,13 @@
 import axios from 'axios';
 
-// Dynamic Base URL logic
-// If REACT_APP_BACKEND_URL is set (Production/Hetzner), use it (e.g., https://pasticceria.../api)
-// If not set (Dev/Preview where port is proxied or relative), use /api
-const backendUrl = process.env.REACT_APP_BACKEND_URL 
-  ? `${process.env.REACT_APP_BACKEND_URL}/api`
-  : "/api";
-
+// PREVIEW COMPATIBLE URL
+// Use relative path so Nginx/Proxy handles it
 const api = axios.create({
-  baseURL: backendUrl,
+  baseURL: "/api",
   withCredentials: true,
 });
 
-// Auth
+// Auth (Emergent Style)
 export const login = async (sessionId) => (await api.post('/auth/session', { session_id: sessionId })).data;
 export const getCurrentUser = async () => (await api.get('/auth/me')).data;
 export const logout = async () => (await api.post('/auth/logout')).data;

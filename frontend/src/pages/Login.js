@@ -3,9 +3,10 @@ import { ChefHat } from 'lucide-react';
 
 const Login = () => {
     const handleLogin = () => {
-        // Fallback for development/preview, absolute URL for production if set
-        const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
-        window.location.href = `${backendUrl}/api/auth/login`;
+        // EMERGENT AUTH (Works in Preview)
+        // Dynamic redirect URL based on current origin
+        const redirectUrl = window.location.origin + '/dashboard';
+        window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
     };
 
     return (
@@ -16,7 +17,7 @@ const Login = () => {
                 </div>
                 
                 <h1 className="text-4xl font-serif text-primary mb-2">DolceVita</h1>
-                <p className="text-muted-foreground mb-8">Gestionale Pasticceria 2.0</p>
+                <p className="text-muted-foreground mb-8">Accesso Staff (Emergent Preview)</p>
 
                 <button 
                     onClick={handleLogin}
@@ -29,10 +30,6 @@ const Login = () => {
                     />
                     Accedi con Google
                 </button>
-                
-                <div className="mt-8 text-xs text-muted-foreground">
-                    <p>Problemi di accesso? Contatta l'assistenza tecnica.</p>
-                </div>
             </div>
         </div>
     );
