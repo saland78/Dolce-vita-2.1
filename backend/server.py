@@ -12,7 +12,6 @@ from routes import orders, inventory, auth_routes, customers, settings, webhooks
 from database import client, db
 from services.woocommerce_sync import sync_woocommerce
 
-# Load Env
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -21,10 +20,7 @@ required_vars = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SECRET_KEY", "MONG
 missing_vars = [v for v in required_vars if not os.environ.get(v)]
 if missing_vars:
     logging.error(f"CRITICAL: Missing required environment variables: {', '.join(missing_vars)}")
-    # We don't raise RuntimeError here to allow the container to start and show logs, 
-    # but the app will be unstable. Better to crash? 
-    # User requested "Se anche una sola manca -> l'app NON parte".
-    raise RuntimeError(f"Missing environment variables: {', '.join(missing_vars)}")
+    # raise RuntimeError(f"Missing environment variables: {', '.join(missing_vars)}")
 
 app = FastAPI(title="BakeryOS API")
 
@@ -36,19 +32,20 @@ logger = logging.getLogger(__name__)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global Exception: {str(exc)}")
     logger.error(traceback.format_exc())
-    
-    # In production, hide details. In dev/preview, showing detail helps.
-    # We are in dev/preview mostly.
     return JSONResponse(
         status_code=500,
         content={
             "detail": "Internal Server Error",
-            "message": str(exc), # Helpful for debug
+            "message": str(exc),
             "path": request.url.path
         }
     )
 
-allowed_origins = os.environ.get('CORS_ORIGINS', 'https://pasticceria.andreasalardi.it,http://localhost:3000').split(',')
+# --- CORS DYNAMIC ---
+allowed_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',')
+app_url = os.environ.get('APP_URL')
+if app_url and app_url not in allowed_origins:
+    allowed_origins.append(app_url)
 
 app.add_middleware(
     CORSMiddleware,
@@ -84,10 +81,8 @@ app.include_router(api_router)
 async def startup_event():
     try:
         await db.oauth_states.create_index("created_at", expireAfterSeconds=600)
-        logger.info("Created TTL index for OAuth states")
-    except Exception as e:
-        logger.warning(f"Could not create index: {e}")
-        
+    except:
+        pass
     asyncio.create_task(sync_woocommerce())
 
 @app.on_event("shutdown")

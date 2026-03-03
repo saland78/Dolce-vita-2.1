@@ -40,14 +40,32 @@ async def verify_and_consume_state(db: AsyncIOMotorDatabase, state: str):
     result = await db.oauth_states.find_one_and_delete({"state": state})
     return result is not None
 
+def get_redirect_uri():
+    """
+    Dynamic Redirect URI resolution.
+    1. Production: GOOGLE_REDIRECT_URI env var
+    2. Preview: APP_URL env var + /api/auth/callback
+    """
+    env_uri = os.environ.get('GOOGLE_REDIRECT_URI')
+    if env_uri:
+        return env_uri
+        
+    app_url = os.environ.get('APP_URL')
+    if app_url:
+        # Ensure no double slash if APP_URL ends with /
+        base = app_url.rstrip('/')
+        return f"{base}/api/auth/callback"
+        
+    return None
+
 # --- ROUTES ---
 
 @router.get("/login")
 async def login(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
-    redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI')
+    redirect_uri = get_redirect_uri()
     if not redirect_uri:
-        logger.error("GOOGLE_REDIRECT_URI is missing in env")
-        return Response("Internal Config Error: Missing Redirect URI", status_code=500)
+        logger.error("Configuration Error: Neither GOOGLE_REDIRECT_URI nor APP_URL are set.")
+        return Response("Internal Config Error: Missing Redirect URI configuration", status_code=500)
 
     # 1. Generate Secure State
     state = generate_state()
@@ -55,44 +73,20 @@ async def login(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
     # 2. Store in DB
     await store_state(db, state)
     
-    logger.info(f"Initiating Login. State generated: {state[:8]}... RedirectURI: {redirect_uri}")
+    logger.info(f"Initiating Login. State: {state[:8]}... URI: {redirect_uri}")
     
     client = oauth.create_client('google')
     
-    # --- C. FIX: Correct API usage for authlib ---
-    # create_authorization_url returns 'dict' in some versions or 'str'?
-    # It turns out 'create_authorization_url' on the Starlette client returns the JSON response dict 
-    # OR calls the underlying OAuth2Session which returns (url, state).
-    # BUT, 'authorize_redirect' handles all of this.
-    # Since I want manual state control, I should use the underlying library feature
-    # OR simpler: Use 'authorize_redirect' but force the state I want?
-    # NO, 'authorize_redirect' stores state in session, which is what we want to avoid.
-    
-    # We must use 'create_authorization_url'.
-    # In Authlib 1.x Starlette client, let's verify what it returns.
-    # It delegates to 'framework.client.OAuthClient.create_authorization_url'
-    # which returns 'url' (string) usually.
-    
+    # 3. Generate URL
     resp = await client.create_authorization_url(redirect_uri, state=state)
-    # resp is likely just the URL string or a response object?
-    # Actually, looking at source code: it calls OAuth2Session.create_authorization_url
-    # OAuth2Session returns (url, state).
-    # BUT, client.create_authorization_url might extract just the URL?
-    
-    # Let's assume it returns just the URL or unpack based on inspection.
-    # Wait, the error was "too many values to unpack (expected 2)".
-    # This means 'resp' was NOT a tuple of 2. It was likely a single string.
-    
     uri = resp['url'] if isinstance(resp, dict) else resp
     
     return RedirectResponse(uri)
 
 @router.get("/callback")
 async def auth_callback(request: Request, response: Response, db: AsyncIOMotorDatabase = Depends(get_db)):
-    # ... (Same logic as before, wrapped in robust try/except) ...
-    # D. ROBUST ERROR HANDLING
     try:
-        # 1. Extract State & Code
+        # 1. Extract
         state = request.query_params.get('state')
         code = request.query_params.get('code')
         error = request.query_params.get('error')
@@ -105,15 +99,15 @@ async def auth_callback(request: Request, response: Response, db: AsyncIOMotorDa
             logger.error("No code provided")
             return RedirectResponse(url="/login?error=no_code")
 
-        # 2. Verify State (Nonce)
+        # 2. Verify State
         is_valid = await verify_and_consume_state(db, state)
         if not is_valid:
             logger.error(f"Invalid State Parameter: {state[:8] if state else 'None'}...")
             return RedirectResponse(url="/login?error=invalid_state")
 
-        # 3. Exchange Code for Token
+        # 3. Exchange Token
         client = oauth.create_client('google')
-        redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI')
+        redirect_uri = get_redirect_uri()
         
         token = await client.fetch_access_token(
             redirect_uri=redirect_uri,
@@ -127,7 +121,7 @@ async def auth_callback(request: Request, response: Response, db: AsyncIOMotorDa
         except Exception:
             user_info = await client.userinfo(token=token)
 
-        # 5. Process User
+        # 5. Process User (Sync/Create)
         google_sub = user_info.get("sub")
         email = user_info.get("email")
         name = user_info.get("name")
@@ -136,7 +130,6 @@ async def auth_callback(request: Request, response: Response, db: AsyncIOMotorDa
         if not email:
             raise Exception("Email not provided by Google")
 
-        # User Matching & Creation (Same as before)
         user = await db.users.find_one({"google_sub": google_sub}, {"_id": 0})
         if not user:
             user = await db.users.find_one({"email": email}, {"_id": 0})
@@ -145,7 +138,7 @@ async def auth_callback(request: Request, response: Response, db: AsyncIOMotorDa
         
         bakery_id = None
         if not user:
-            # Register
+            # Register New Tenant
             new_bakery = Bakery(
                 name=f"Pasticceria di {name.split()[0]}",
                 owner_user_id="temp",
@@ -166,7 +159,7 @@ async def auth_callback(request: Request, response: Response, db: AsyncIOMotorDa
             await db.users.insert_one(new_user.model_dump())
             user = new_user.model_dump()
         else:
-            # Login
+            # Login Existing
             await db.users.update_one(
                 {"email": email},
                 {"$set": {"name": name, "picture": picture, "last_login_at": datetime.now(timezone.utc), "google_sub": google_sub}}
