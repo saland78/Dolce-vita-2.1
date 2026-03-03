@@ -9,7 +9,6 @@ from services.parsers import parse_wc_order_meta, parse_wc_item_meta
 
 logger = logging.getLogger(__name__)
 
-# ... (Previous imports and helper functions remain same) ...
 def clean_html(raw_html):
     if not raw_html: return ""
     try:
@@ -18,54 +17,7 @@ def clean_html(raw_html):
     except:
         return str(raw_html)
 
-async def push_order_status(bakery_id: str, wc_order_id: str, new_status: str):
-    """
-    Push local status change back to WooCommerce.
-    """
-    bakery = await db.bakeries.find_one({"_id": bakery_id})
-    if not bakery: return
-    
-    url = bakery.get("wc_url")
-    key = bakery.get("wc_consumer_key")
-    secret = bakery.get("wc_consumer_secret")
-    
-    if not (url and key and secret and wc_order_id):
-        return
-
-    # Map Local Status -> WC Status
-    # Our status: received, in_production, ready, delivered
-    # WC status: processing, completed
-    wc_status_slug = "processing" # Default
-    
-    if new_status == OrderStatus.DELIVERED:
-        wc_status_slug = "completed"
-    elif new_status == OrderStatus.READY:
-        wc_status_slug = "processing" # Or custom status if they have one? Keep processing for now.
-        # Maybe add a note?
-    elif new_status == OrderStatus.CANCELLED:
-        wc_status_slug = "cancelled"
-        
-    try:
-        wcapi = API(url=url, consumer_key=key, consumer_secret=secret, version="wc/v3", timeout=20)
-        data = {"status": wc_status_slug}
-        
-        # If Ready, maybe add a note?
-        if new_status == OrderStatus.READY:
-            # We don't change status to completed yet, but maybe add note
-            wcapi.post(f"orders/{wc_order_id}/notes", {"note": "Il tuo ordine è PRONTO per il ritiro!", "customer_note": True})
-            
-        response = wcapi.put(f"orders/{wc_order_id}", data)
-        if response.status_code == 200:
-            logger.info(f"Pushed status {wc_status_slug} to WC Order {wc_order_id}")
-        else:
-            logger.error(f"Failed to push status to WC: {response.text}")
-            
-    except Exception as e:
-        logger.error(f"Error pushing status to WC: {e}")
-
 async def sync_bakery(bakery):
-    # ... (Keep existing sync_bakery logic mostly as is, just ensure parsers are used) ...
-    # I am overwriting the file so I must include the full content of sync_bakery here.
     bakery_id = str(bakery["_id"])
     url = bakery.get("wc_url")
     key = bakery.get("wc_consumer_key")
@@ -112,6 +64,11 @@ async def sync_bakery(bakery):
                 existing = await db.orders.find_one({"_id": custom_id})
                 
                 order_meta = parse_wc_order_meta(o)
+                # Fallback logic for date
+                created_dt = datetime.fromisoformat(o["date_created_gmt"]).replace(tzinfo=timezone.utc)
+                pickup_date = order_meta["pickup_date"] or created_dt.strftime("%Y-%m-%d")
+                pickup_time = order_meta["pickup_time"] or "ASAP"
+
                 items = []
                 for item in o["line_items"]:
                     p_id = f"{bakery_id}_{item['product_id']}"
@@ -154,8 +111,9 @@ async def sync_bakery(bakery):
                     "customer_email": o["billing"]["email"],
                     "items": items, "total_amount": float(o["total"]),
                     "status": final_status, "payment_status": payment_status,
-                    "pickup_date": order_meta["pickup_date"], "pickup_time": order_meta["pickup_time"],
-                    "created_at": datetime.fromisoformat(o["date_created_gmt"]).replace(tzinfo=timezone.utc),
+                    "pickup_date": pickup_date, # UPDATED
+                    "pickup_time": pickup_time, # UPDATED
+                    "created_at": created_dt,
                     "updated_at": datetime.now(timezone.utc),
                     "notes": clean_html(o.get("customer_note", ""))
                 }

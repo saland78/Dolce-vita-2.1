@@ -17,7 +17,7 @@ async def verify_webhook_signature(request: Request, secret: str, x_wc_webhook_s
     body = await request.body()
     if not secret:
         logger.warning("Webhook received but no secret configured in DB/Env.")
-        return True # Fail open for testing, or False for strict security
+        return True 
         
     digest = hmac.new(secret.encode('utf-8'), body, hashlib.sha256).digest()
     calculated_signature = base64.b64encode(digest).decode('utf-8')
@@ -32,47 +32,31 @@ async def webhook_order_updated(
     x_wc_webhook_source: str = Header(None),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
-    """
-    Receives Order Created/Updated events from WooCommerce.
-    """
     try:
         payload = await request.json()
         
-        # 1. Identify Bakery based on Source URL or brute-force check signature?
-        # Since we are multi-tenant SaaS, we need to know WHICH bakery this is.
-        # WC Webhook doesn't send bakery_id. We can use the Source URL.
-        # Clean the source URL (remove http/https/trailing slash)
+        # Identify Bakery
         clean_source = x_wc_webhook_source.replace("https://", "").replace("http://", "").rstrip("/")
-        
-        # Find bakery by URL matching
-        # Note: In production, we might want a unique webhook URL per bakery like /webhooks/{bakery_id}/order
-        # For now, let's search regex or exact match
         bakery = await db.bakeries.find_one({"wc_url": {"$regex": clean_source}})
         
         if not bakery:
             logger.error(f"Webhook received from unknown source: {x_wc_webhook_source}")
             return {"status": "ignored", "reason": "unknown_source"}
             
-        # 2. Verify Signature
-        # secret = bakery.get("wc_webhook_secret") or os.environ.get("WC_WEBHOOK_SECRET")
-        # if not await verify_webhook_signature(request, secret, x_wc_webhook_signature):
-        #     raise HTTPException(status_code=401, detail="Invalid Signature")
-
-        # 3. Process Order
         wc_id = str(payload.get("id"))
         bakery_id = str(bakery["_id"])
         custom_id = f"{bakery_id}_{wc_id}"
         
-        # Parse Meta
         order_meta = parse_wc_order_meta(payload)
         
-        # Parse Items
+        # Fallback date logic
+        created_dt = datetime.fromisoformat(payload.get("date_created_gmt")).replace(tzinfo=timezone.utc)
+        pickup_date = order_meta["pickup_date"] or created_dt.strftime("%Y-%m-%d")
+        pickup_time = order_meta["pickup_time"] or "ASAP"
+
         items = []
         for item in payload.get("line_items", []):
             item_meta = parse_wc_item_meta(item)
-            
-            # Ensure product exists or upsert it briefly? 
-            # We assume Sync Service handles products, but we map the ID correctly
             p_id = f"{bakery_id}_{item['product_id']}"
             
             items.append({
@@ -84,7 +68,6 @@ async def webhook_order_updated(
                 "meta": item_meta
             })
 
-        # Map Status
         status_map = {
             "processing": OrderStatus.RECEIVED, 
             "pending": OrderStatus.RECEIVED,
@@ -95,14 +78,12 @@ async def webhook_order_updated(
             "failed": OrderStatus.CANCELLED
         }
         
-        # Check existing to preserve local flow
         existing = await db.orders.find_one({"_id": custom_id})
         wc_status = status_map.get(payload.get("status"), OrderStatus.RECEIVED)
         final_status = wc_status
         
         if existing:
             local = existing.get("status")
-            # Don't revert progress
             if local in [OrderStatus.IN_PRODUCTION, OrderStatus.READY] and wc_status == OrderStatus.RECEIVED:
                 final_status = local
 
@@ -125,15 +106,14 @@ async def webhook_order_updated(
             "total_amount": float(payload.get("total", 0)),
             "status": final_status,
             "payment_status": payment_status,
-            "pickup_date": order_meta["pickup_date"],
-            "pickup_time": order_meta["pickup_time"],
+            "pickup_date": pickup_date, # Use fallback
+            "pickup_time": pickup_time, # Use fallback
             "updated_at": datetime.now(timezone.utc)
         }
         
         if not existing:
-            order_data["created_at"] = datetime.fromisoformat(payload.get("date_created_gmt")).replace(tzinfo=timezone.utc)
+            order_data["created_at"] = created_dt
             order_data["archived"] = False
-            # Notes
             order_data["notes"] = payload.get("customer_note", "")
 
         await db.orders.update_one(
@@ -142,7 +122,7 @@ async def webhook_order_updated(
             upsert=True
         )
         
-        logger.info(f"Webhook processed for order {wc_id} - Bakery {bakery.get('name')}")
+        logger.info(f"Webhook processed for order {wc_id}")
         return {"status": "success", "order_id": custom_id}
 
     except Exception as e:
