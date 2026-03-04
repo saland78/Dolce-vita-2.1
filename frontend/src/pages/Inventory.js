@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { getIngredients } from '../api/api';
+import api, { getIngredients } from '../api/api';
 import { AlertTriangle, Plus, X, Check, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,7 +33,6 @@ const Inventory = () => {
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
-            // Robust parsing: Default to 0 if invalid/empty
             const payload = {
                 name: newIng.name,
                 unit: newIng.unit,
@@ -42,9 +41,8 @@ const Inventory = () => {
                 cost_per_unit: parseFloat(newIng.cost_per_unit) || 0
             };
 
-            const api = (await import('../api/api')).default;
-            
-            // FIX: Removed /api prefix because baseURL already has /api
+            // Using api instance from imports directly
+            // Path is relative to /api (defined in api.js)
             await api.post('/inventory/ingredients', payload);
             
             toast.success("Ingrediente aggiunto!");
@@ -60,6 +58,8 @@ const Inventory = () => {
                 } else {
                     toast.error(`Errore: ${details}`);
                 }
+            } else if (err.response && err.response.status === 404) {
+                toast.error("Errore: Endpoint non trovato (404)");
             } else {
                 toast.error("Errore nell'aggiunta ingrediente");
             }
@@ -133,7 +133,6 @@ const Inventory = () => {
                 </table>
             </div>
 
-            {/* Modal Dialog */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">

@@ -3,7 +3,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
-from models import Order, OrderCreate, OrderStatus
+from models import Order, OrderCreate, OrderStatus, OrderItem
 from database import get_db
 from services.email_service import EmailService
 from services.woocommerce_sync import push_order_status
@@ -17,7 +17,7 @@ class ProductionStatusUpdate(BaseModel):
     completed: bool
     date: str
 
-# ... (get_orders, create_order remain same) ...
+# ... (Previous Order Routes) ...
 @router.get("/", response_model=List[Order])
 async def get_orders(
     status: str = None, 
@@ -52,7 +52,6 @@ async def update_status(
         return_document=True
     )
 
-    # 1. Email Trigger
     if status == OrderStatus.READY and original_order.get("status") != OrderStatus.READY:
         customer_email = result.get("customer_email")
         if customer_email:
@@ -62,7 +61,6 @@ async def update_status(
                 order_id=order_id
             )
             
-    # 2. WooCommerce Push Trigger (NEW)
     if result.get("wc_order_id"):
         await push_order_status(bakery_id, result.get("wc_order_id"), status)
 
@@ -87,7 +85,6 @@ async def get_production_sheet(
         headers={"Content-Disposition": f"attachment; filename=scheda_{order_id}.pdf"}
     )
 
-# ... (archive_order, stats, sales-history remain same) ...
 @router.put("/{order_id}/archive", response_model=Order)
 async def archive_order(
     order_id: str, 
@@ -216,10 +213,7 @@ async def get_sales_history(
             
     return formatted
 
-# --- PRODUCTION PLAN (SLOTS VIEW) ---
-# NOTE: The user requested a "Production Plan" view that groups by pickup slot.
-# I am updating the endpoint to return full details, not just aggregated items.
-# Or better, create a new endpoint /orders/daily-slots
+# --- PRODUCTION PLAN & SLOTS ---
 
 @router.get("/daily-slots")
 async def get_daily_slots(
@@ -228,15 +222,13 @@ async def get_daily_slots(
 ):
     _, bakery_id = context
     
-    # Fetch active orders
     orders = await db.orders.find({
         "bakery_id": bakery_id,
         "archived": {"$ne": True},
         "status": {"$in": ["received", "in_production", "ready"]}
     }).sort("pickup_time", 1).to_list(1000)
     
-    # Group in Python because Mongo Grouping is complex for this specific UI structure
-    grouped = {} # { "YYYY-MM-DD": { "HH:MM": [order1, order2] } }
+    grouped = {} 
     
     for o in orders:
         p_date = o.get("pickup_date") or "Data non specificata"
@@ -249,7 +241,6 @@ async def get_daily_slots(
         
     return grouped
 
-# Keeping legacy aggregated plan for "Item Totals" view if needed
 @router.get("/production-plan")
 async def get_production_plan(
     date: Optional[str] = None, 
@@ -320,3 +311,27 @@ async def toggle_production_status(
         upsert=True
     )
     return {"status": "ok"}
+
+# --- MANUAL ORDER CREATE FIX ---
+@router.post("/", response_model=Order)
+async def create_order(
+    order_in: OrderCreate, 
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    context: tuple = Depends(get_current_user_and_bakery)
+):
+    _, bakery_id = context
+    total = sum(item.quantity * item.unit_price for item in order_in.items)
+    
+    order = Order(
+        bakery_id=bakery_id, 
+        customer_name=order_in.customer_name,
+        customer_email=order_in.customer_email,
+        items=order_in.items,
+        total_amount=total,
+        notes=order_in.notes,
+        source="manual",
+        status=OrderStatus.RECEIVED
+    )
+    
+    await db.orders.insert_one(order.model_dump(by_alias=True))
+    return order
