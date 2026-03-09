@@ -4,7 +4,9 @@ from database import get_db
 from typing import List, Optional
 from pydantic import BaseModel
 from dependencies import get_current_user_and_bakery
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/customers", tags=["customers"])
 
 class CustomerSummary(BaseModel):
@@ -53,8 +55,15 @@ async def get_customers(
     
     customers = await db.orders.aggregate(pipeline).to_list(100)
     
+    # Debug log
+    logger.info(f"Aggregated {len(customers)} customers for bakery {bakery_id}")
+    
     for c in customers:
         if c.get("last_order_date"):
-            c["last_order_date"] = c["last_order_date"].isoformat()
+            # Ensure it's a datetime before calling isoformat
+            if hasattr(c["last_order_date"], 'isoformat'):
+                c["last_order_date"] = c["last_order_date"].isoformat()
+            else:
+                c["last_order_date"] = str(c["last_order_date"])
             
     return customers
