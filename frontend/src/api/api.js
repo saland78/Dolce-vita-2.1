@@ -1,7 +1,6 @@
 import axios from 'axios';
 
 // PREVIEW COMPATIBLE URL
-// Use relative path so Nginx/Proxy handles it
 const api = axios.create({
   baseURL: "/api",
   withCredentials: true,
@@ -30,6 +29,10 @@ export const toggleProductionStatus = async (data) => (await api.post('/orders/p
 
 // Inventory & Products
 export const getIngredients = async () => (await api.get('/inventory/ingredients')).data;
+export const createIngredient = async (data) => (await api.post('/inventory/ingredients', data)).data;
+export const updateIngredient = async (id, data) => (await api.put(`/inventory/ingredients/${id}`, data)).data; // NEW
+export const deleteIngredient = async (id) => (await api.delete(`/inventory/ingredients/${id}`)).data; // NEW
+
 export const getProducts = async () => (await api.get('/inventory/products')).data;
 export const getProductOrders = async (productId) => (await api.get(`/inventory/products/${productId}/orders`)).data;
 export const seedInventory = async () => (await api.post('/inventory/seed')).data;

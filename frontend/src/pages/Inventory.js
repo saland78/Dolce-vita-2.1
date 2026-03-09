@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import api, { getIngredients } from '../api/api';
-import { AlertTriangle, Plus, X, Check, Trash2 } from 'lucide-react';
+import { getIngredients, createIngredient, updateIngredient, deleteIngredient } from '../api/api';
+import { AlertTriangle, Plus, X, Check, Trash2, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Inventory = () => {
     const [ingredients, setIngredients] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const [currentId, setCurrentId] = useState(null);
     
     // Form State
-    const [newIng, setNewIng] = useState({
+    const [formData, setFormData] = useState({
         name: "",
         quantity: "",
         unit: "kg",
@@ -30,39 +32,59 @@ const Inventory = () => {
         fetchIngredients();
     }, []);
 
-    const handleCreate = async (e) => {
+    const openCreate = () => {
+        setEditMode(false);
+        setFormData({ name: "", quantity: "", unit: "kg", reorder_threshold: "", cost_per_unit: "" });
+        setIsModalOpen(true);
+    };
+
+    const openEdit = (ing) => {
+        setEditMode(true);
+        setCurrentId(ing._id);
+        setFormData({
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+            reorder_threshold: ing.reorder_threshold,
+            cost_per_unit: ing.cost_per_unit
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         try {
             const payload = {
-                name: newIng.name,
-                unit: newIng.unit,
-                quantity: parseFloat(newIng.quantity) || 0,
-                reorder_threshold: parseFloat(newIng.reorder_threshold) || 0,
-                cost_per_unit: parseFloat(newIng.cost_per_unit) || 0
+                name: formData.name,
+                unit: formData.unit,
+                quantity: parseFloat(formData.quantity) || 0,
+                reorder_threshold: parseFloat(formData.reorder_threshold) || 0,
+                cost_per_unit: parseFloat(formData.cost_per_unit) || 0
             };
 
-            // Using api instance from imports directly
-            // Path is relative to /api (defined in api.js)
-            await api.post('/inventory/ingredients', payload);
+            if (editMode) {
+                await updateIngredient(currentId, payload);
+                toast.success("Ingrediente aggiornato!");
+            } else {
+                await createIngredient(payload);
+                toast.success("Ingrediente aggiunto!");
+            }
             
-            toast.success("Ingrediente aggiunto!");
             setIsModalOpen(false);
-            setNewIng({ name: "", quantity: "", unit: "kg", reorder_threshold: "", cost_per_unit: "" });
             fetchIngredients();
         } catch (err) {
-            console.error(err);
-            if (err.response && err.response.data && err.response.data.detail) {
-                const details = err.response.data.detail;
-                if (Array.isArray(details)) {
-                    toast.error(`Errore: ${details.map(d => d.msg).join(", ")}`);
-                } else {
-                    toast.error(`Errore: ${details}`);
-                }
-            } else if (err.response && err.response.status === 404) {
-                toast.error("Errore: Endpoint non trovato (404)");
-            } else {
-                toast.error("Errore nell'aggiunta ingrediente");
-            }
+            toast.error("Errore nel salvataggio");
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Sei sicuro di voler eliminare questo ingrediente?")) return;
+        try {
+            await deleteIngredient(id);
+            toast.success("Eliminato");
+            fetchIngredients();
+        } catch (e) {
+            toast.error("Errore eliminazione");
         }
     };
 
@@ -74,7 +96,7 @@ const Inventory = () => {
                     <p className="text-muted-foreground">Gestione scorte interne (Farina, Zucchero, etc.)</p>
                 </div>
                 <button 
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={openCreate}
                     className="bg-primary text-primary-foreground px-4 py-2 rounded-full flex items-center gap-2 hover:bg-primary/90 transition-all shadow-sm"
                 >
                     <Plus size={18} /> Nuovo Ingrediente
@@ -123,8 +145,21 @@ const Inventory = () => {
                                             </span>
                                         )}
                                     </td>
-                                    <td className="p-4 text-right">
-                                        <button className="text-sm font-medium text-accent hover:text-accent/80 hover:underline">Modifica</button>
+                                    <td className="p-4 text-right flex justify-end gap-2">
+                                        <button 
+                                            onClick={() => openEdit(ing)}
+                                            className="p-1 hover:bg-secondary/50 rounded-md text-accent transition-colors"
+                                            title="Modifica"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDelete(ing._id)}
+                                            className="p-1 hover:bg-red-50 rounded-md text-red-500 transition-colors"
+                                            title="Elimina"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </td>
                                 </tr>
                             );
@@ -133,17 +168,20 @@ const Inventory = () => {
                 </table>
             </div>
 
+            {/* Modal Dialog */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-serif text-primary">Nuovo Ingrediente</h2>
+                            <h2 className="text-2xl font-serif text-primary">
+                                {editMode ? "Modifica Ingrediente" : "Nuovo Ingrediente"}
+                            </h2>
                             <button onClick={() => setIsModalOpen(false)} className="text-muted-foreground hover:text-destructive">
                                 <X size={24} />
                             </button>
                         </div>
                         
-                        <form onSubmit={handleCreate} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-muted-foreground mb-1">Nome</label>
                                 <input 
@@ -151,8 +189,8 @@ const Inventory = () => {
                                     type="text" 
                                     className="w-full p-2 rounded-lg border border-border bg-muted/20 focus:ring-2 focus:ring-accent outline-none"
                                     placeholder="Es. Farina 00"
-                                    value={newIng.name}
-                                    onChange={e => setNewIng({...newIng, name: e.target.value})}
+                                    value={formData.name}
+                                    onChange={e => setFormData({...formData, name: e.target.value})}
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
@@ -163,16 +201,16 @@ const Inventory = () => {
                                         step="0.01"
                                         className="w-full p-2 rounded-lg border border-border bg-muted/20 focus:ring-2 focus:ring-accent outline-none"
                                         placeholder="0.00"
-                                        value={newIng.quantity}
-                                        onChange={e => setNewIng({...newIng, quantity: e.target.value})}
+                                        value={formData.quantity}
+                                        onChange={e => setFormData({...formData, quantity: e.target.value})}
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-muted-foreground mb-1">Unità</label>
                                     <select 
                                         className="w-full p-2 rounded-lg border border-border bg-muted/20 focus:ring-2 focus:ring-accent outline-none"
-                                        value={newIng.unit}
-                                        onChange={e => setNewIng({...newIng, unit: e.target.value})}
+                                        value={formData.unit}
+                                        onChange={e => setFormData({...formData, unit: e.target.value})}
                                     >
                                         <option value="kg">kg</option>
                                         <option value="litri">litri</option>
@@ -189,8 +227,8 @@ const Inventory = () => {
                                         step="0.01"
                                         className="w-full p-2 rounded-lg border border-border bg-muted/20 focus:ring-2 focus:ring-accent outline-none"
                                         placeholder="10"
-                                        value={newIng.reorder_threshold}
-                                        onChange={e => setNewIng({...newIng, reorder_threshold: e.target.value})}
+                                        value={formData.reorder_threshold}
+                                        onChange={e => setFormData({...formData, reorder_threshold: e.target.value})}
                                     />
                                 </div>
                                 <div>
@@ -200,8 +238,8 @@ const Inventory = () => {
                                         step="0.01"
                                         className="w-full p-2 rounded-lg border border-border bg-muted/20 focus:ring-2 focus:ring-accent outline-none"
                                         placeholder="1.50"
-                                        value={newIng.cost_per_unit}
-                                        onChange={e => setNewIng({...newIng, cost_per_unit: e.target.value})}
+                                        value={formData.cost_per_unit}
+                                        onChange={e => setFormData({...formData, cost_per_unit: e.target.value})}
                                     />
                                 </div>
                             </div>
@@ -210,7 +248,8 @@ const Inventory = () => {
                                 type="submit"
                                 className="w-full bg-primary text-white font-medium py-3 rounded-xl hover:bg-primary/90 transition-all flex items-center justify-center gap-2 mt-4"
                             >
-                                <Check size={20} /> Salva Ingrediente
+                                <Check size={20} /> 
+                                {editMode ? "Salva Modifiche" : "Crea Ingrediente"}
                             </button>
                         </form>
                     </div>
