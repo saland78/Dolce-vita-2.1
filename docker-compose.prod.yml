@@ -6,7 +6,7 @@ services:
     container_name: bakeryos-frontend
     restart: always
     environment:
-      - REACT_APP_BACKEND_URL=https://pasticceria.andreasalardi.it
+      - REACT_APP_BACKEND_URL=https://pasticceriamodena.andreasalardi.it
     expose:
       - "3000"
 
@@ -19,8 +19,8 @@ services:
       - MONGO_URL=mongodb://mongo:27017
       - DB_NAME=bakeryos_production
       # Force absolute production URL for redirects
-      - GOOGLE_REDIRECT_URI=https://pasticceria.andreasalardi.it/api/auth/callback
-      - CORS_ORIGINS=https://pasticceria.andreasalardi.it
+      - GOOGLE_REDIRECT_URI=https://pasticceriamodena.andreasalardi.it/api/auth/callback
+      - CORS_ORIGINS=https://pasticceriamodena.andreasalardi.it
     expose:
       - "8001"
     depends_on:
