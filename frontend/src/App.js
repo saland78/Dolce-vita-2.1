@@ -5,6 +5,7 @@ import Inventory from "./pages/Inventory";
 import Products from "./pages/Products";
 import Clients from "./pages/Clients";
 import Production from "./pages/Production";
+import Recipes from "./pages/Recipes";
 import SettingsPage from "./pages/Settings";
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -32,6 +33,7 @@ const AppRouter = () => {
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/products" element={<Products />} />
                 <Route path="/production" element={<Production />} />
+                <Route path="/recipes" element={<Recipes />} />
                 <Route path="/settings" element={<SettingsPage />} />
             </Route>
         </Routes>

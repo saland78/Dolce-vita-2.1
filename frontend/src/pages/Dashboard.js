@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Layout from '../components/Layout';
-import { getStats, getOrders, getSalesHistory, getCurrentUser } from '../api/api';
-import { ArrowUpRight, Clock, CheckCircle, Truck, Package, ChefHat } from 'lucide-react';
+import { getStats, getOrders, getSalesHistory, getCurrentUser, getIngredients } from '../api/api';
+import { ArrowUpRight, Clock, ChefHat, Package, AlertTriangle, Bell, BellOff } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { toast } from 'sonner';
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
@@ -22,6 +23,13 @@ const StatCard = ({ title, value, icon: Icon, color, isCurrency }) => (
     </div>
 );
 
+const STATUS_LABELS = {
+    received: 'Ricevuto',
+    in_production: 'In Produzione',
+    ready: 'Pronto',
+    delivered: 'Consegnato',
+};
+
 const Dashboard = () => {
     const [user, setUser] = useState(null);
     const [stats, setStats] = useState(null);
@@ -29,19 +37,65 @@ const Dashboard = () => {
     const [chartData, setChartData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [range, setRange] = useState("7d");
+    const [lowStockIngredients, setLowStockIngredients] = useState([]);
+    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+    const prevOrderIdsRef = useRef(null);
+    const audioCtxRef = useRef(null);
+
+    const playNotificationSound = () => {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            audioCtxRef.current = ctx;
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+            oscillator.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.5);
+        } catch (e) {
+            console.log('Audio not available');
+        }
+    };
 
     const fetchData = async () => {
         try {
-            const [userData, statsData, ordersData, historyData] = await Promise.all([
+            const [userData, statsData, ordersData, historyData, ingredientsData] = await Promise.all([
                 getCurrentUser(),
-                getStats(), 
+                getStats(),
                 getOrders(),
-                getSalesHistory(range)
+                getSalesHistory(range),
+                getIngredients(),
             ]);
             setUser(userData);
             setStats(statsData);
-            setRecentOrders(ordersData.slice(0, 5));
             setChartData(historyData);
+
+            // --- Avvisi scorte basse ---
+            const low = ingredientsData.filter(ing => ing.reorder_threshold > 0 && ing.quantity <= ing.reorder_threshold);
+            setLowStockIngredients(low);
+
+            // --- Notifiche nuovi ordini ---
+            const currentIds = new Set(ordersData.map(o => o._id));
+            if (prevOrderIdsRef.current !== null) {
+                const newOrders = ordersData.filter(o => !prevOrderIdsRef.current.has(o._id));
+                if (newOrders.length > 0 && notificationsEnabled) {
+                    newOrders.forEach(o => {
+                        toast.success(`🔔 Nuovo ordine da ${o.customer_name}!`, {
+                            description: `${o.items.length} articoli • ${formatCurrency(o.total_amount)}`,
+                            duration: 8000,
+                        });
+                    });
+                    playNotificationSound();
+                }
+            }
+            prevOrderIdsRef.current = currentIds;
+            setRecentOrders(ordersData.slice(0, 5));
         } catch (error) {
             console.error("Failed to fetch dashboard data", error);
         } finally {
@@ -51,70 +105,79 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 10000); 
+        const interval = setInterval(fetchData, 10000);
         return () => clearInterval(interval);
-    }, [range]);
+    }, [range, notificationsEnabled]);
 
     if (loading) return <div className="flex h-screen items-center justify-center text-primary font-serif">Caricamento...</div>;
+
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Buongiorno' : hour < 18 ? 'Buon pomeriggio' : 'Buonasera';
 
     return (
         <Layout>
             <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-4xl font-serif text-primary mb-2">
-                        Buongiorno, {user?.name?.split(' ')[0] || 'Chef'}.
+                        {greeting}, {user?.name?.split(' ')[0] || 'Chef'}.
                     </h1>
                     <p className="text-muted-foreground">Ecco la situazione della pasticceria oggi.</p>
                 </div>
-                <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-border">
-                     {[
-                        { label: 'Oggi', value: 'today' },
-                        { label: '7 Giorni', value: '7d' },
-                        { label: 'Mese', value: '30d' },
-                        { label: '6 Mesi', value: '6m' },
-                        { label: 'Anno', value: '1y' }
-                     ].map(opt => (
-                        <button
-                            key={opt.value}
-                            onClick={() => setRange(opt.value)}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                                range === opt.value 
-                                ? 'bg-primary text-white shadow-sm' 
-                                : 'text-muted-foreground hover:bg-muted'
-                            }`}
-                        >
-                            {opt.label}
-                        </button>
-                     ))}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setNotificationsEnabled(v => !v)}
+                        className={`p-2 rounded-lg border transition-all ${notificationsEnabled ? 'bg-primary text-white border-primary' : 'bg-white text-muted-foreground border-border'}`}
+                        title={notificationsEnabled ? 'Notifiche attive' : 'Notifiche disattivate'}
+                    >
+                        {notificationsEnabled ? <Bell size={18} /> : <BellOff size={18} />}
+                    </button>
+                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-border">
+                        {[
+                            { label: 'Oggi', value: 'today' },
+                            { label: '7 Giorni', value: '7d' },
+                            { label: 'Mese', value: '30d' },
+                            { label: '6 Mesi', value: '6m' },
+                            { label: 'Anno', value: '1y' }
+                        ].map(opt => (
+                            <button
+                                key={opt.value}
+                                onClick={() => setRange(opt.value)}
+                                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                                    range === opt.value
+                                    ? 'bg-primary text-white shadow-sm'
+                                    : 'text-muted-foreground hover:bg-muted'
+                                }`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
+            {/* Avvisi scorte basse */}
+            {lowStockIngredients.length > 0 && (
+                <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle size={20} className="text-red-600" />
+                        <h3 className="font-semibold text-red-700">Scorte in Esaurimento ({lowStockIngredients.length})</h3>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {lowStockIngredients.map(ing => (
+                            <span key={ing._id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-red-100 text-red-700 border border-red-200">
+                                <AlertTriangle size={12} />
+                                <strong>{ing.name}</strong>: {ing.quantity} {ing.unit} (min. {ing.reorder_threshold})
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard 
-                    title="Ordini Totali" 
-                    value={stats?.total_orders || 0} 
-                    icon={Package} 
-                    color="bg-blue-100 text-blue-600" 
-                />
-                <StatCard 
-                    title="In Attesa" 
-                    value={stats?.pending || 0} 
-                    icon={Clock} 
-                    color="bg-yellow-100 text-yellow-600" 
-                />
-                <StatCard 
-                    title="In Produzione" 
-                    value={stats?.production || 0} 
-                    icon={ChefHat} 
-                    color="bg-orange-100 text-orange-600" 
-                />
-                 <StatCard 
-                    title="Incasso Oggi" 
-                    value={stats?.today_revenue || 0} 
-                    icon={ArrowUpRight} 
-                    color="bg-green-100 text-green-600" 
-                    isCurrency={true}
-                />
+                <StatCard title="Ordini Totali" value={stats?.total_orders || 0} icon={Package} color="bg-blue-100 text-blue-600" />
+                <StatCard title="In Attesa" value={stats?.pending || 0} icon={Clock} color="bg-yellow-100 text-yellow-600" />
+                <StatCard title="In Produzione" value={stats?.production || 0} icon={ChefHat} color="bg-orange-100 text-orange-600" />
+                <StatCard title="Incasso Oggi" value={stats?.today_revenue || 0} icon={ArrowUpRight} color="bg-green-100 text-green-600" isCurrency={true} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -131,8 +194,8 @@ const Dashboard = () => {
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E6DCC8" />
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#8D7B68'}} />
                                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#8D7B68'}} />
-                                <Tooltip 
-                                    contentStyle={{backgroundColor: '#FFF', borderRadius: '12px', border: '1px solid #E6DCC8', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}} 
+                                <Tooltip
+                                    contentStyle={{backgroundColor: '#FFF', borderRadius: '12px', border: '1px solid #E6DCC8', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}}
                                     itemStyle={{color: '#3E2723'}}
                                     formatter={(value) => formatCurrency(value)}
                                 />
@@ -153,14 +216,18 @@ const Dashboard = () => {
                                 </div>
                                 <div className="flex flex-col items-end gap-1">
                                     <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
-                                        ${order.status === 'received' ? 'bg-yellow-100 text-yellow-700' : 
-                                        order.status === 'ready' ? 'bg-green-100 text-green-700' : 
+                                        ${order.status === 'received' ? 'bg-yellow-100 text-yellow-700' :
+                                        order.status === 'in_production' ? 'bg-orange-100 text-orange-700' :
+                                        order.status === 'ready' ? 'bg-green-100 text-green-700' :
                                         'bg-gray-100 text-gray-600'}`}>
-                                        {order.status}
+                                        {STATUS_LABELS[order.status] || order.status}
                                     </span>
                                 </div>
                             </div>
                         ))}
+                        {recentOrders.length === 0 && (
+                            <p className="text-center text-muted-foreground text-sm py-8">Nessun ordine recente</p>
+                        )}
                     </div>
                 </div>
             </div>

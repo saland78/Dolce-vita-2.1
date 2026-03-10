@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Box, Settings, ChefHat, LogOut, PlusCircle, CakeSlice, Users, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Box, Settings, ChefHat, LogOut, PlusCircle, CakeSlice, Users, ClipboardList, BookOpen } from 'lucide-react';
 import { logout, getCurrentUser } from '../api/api';
 import { toast } from 'sonner';
 
@@ -59,6 +59,7 @@ const Layout = ({ children }) => {
           <p className="px-4 text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Catalogo</p>
           <SidebarItem icon={CakeSlice} label="Prodotti Finiti" to="/products" active={location.pathname === '/products'} />
           <SidebarItem icon={Box} label="Materie Prime" to="/inventory" active={location.pathname === '/inventory'} />
+          <SidebarItem icon={BookOpen} label="Ricette" to="/recipes" active={location.pathname === '/recipes'} />
           <div className="my-4 border-t border-border mx-2"></div>
           <SidebarItem icon={Settings} label="Impostazioni" to="/settings" active={location.pathname === '/settings'} />
         </nav>
