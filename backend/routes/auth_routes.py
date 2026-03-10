@@ -92,16 +92,17 @@ async def google_callback(code: str, response: Response, db: AsyncIOMotorDatabas
         "created_at": datetime.now(timezone.utc)
     })
 
-    response.set_cookie(
+    redirect = RedirectResponse(url="/", status_code=302)
+    redirect.set_cookie(
         key="session_token",
         value=session_token,
         httponly=True,
-        secure=False,
+        secure=True,
         samesite="lax",
         max_age=7*24*60*60,
         path="/"
     )
-    return RedirectResponse(url="/")
+    return redirect
 
 @router.get("/me")
 async def get_current_user(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
