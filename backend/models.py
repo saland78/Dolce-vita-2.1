@@ -58,8 +58,9 @@ class RecipeIngredient(BaseModel):
     unit: str
 
 class Recipe(BaseModel):
+    model_config = {"populate_by_name": True}
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
-    bakery_id: str
+    bakery_id: Optional[str] = None
     product_id: str
     product_name: str
     base_weight_kg: float = 1.0
