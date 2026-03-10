@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { getProducts, getProductOrders } from '../api/api';
+import { getProducts, getProductOrders, forceSyncProducts } from '../api/api';
 import { Search, User, Calendar, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -10,9 +10,22 @@ const Products = () => {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [productOrders, setProductOrders] = useState([]);
     const [loadingOrders, setLoadingOrders] = useState(false);
+    const [syncing, setSyncing] = useState(false);
 
     const fetchProducts = () => {
         getProducts().then(setProducts).catch(console.error);
+    };
+
+    const handleSync = async () => {
+        setSyncing(true);
+        try {
+            await forceSyncProducts();
+            await fetchProducts();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSyncing(false);
+        }
     };
 
     useEffect(() => {
@@ -50,8 +63,9 @@ const Products = () => {
                     <h1 className="text-3xl font-serif text-primary">Prodotti Finiti</h1>
                     <p className="text-muted-foreground">Sincronizzati dal sito web.</p>
                 </div>
-                <button onClick={fetchProducts} className="p-2 rounded-full hover:bg-muted text-primary" title="Aggiorna">
-                    <RefreshCw size={20} />
+                <button onClick={handleSync} disabled={syncing} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted text-primary border border-border bg-white text-sm font-medium transition disabled:opacity-50" title="Sincronizza con WooCommerce">
+                    <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
+                    {syncing ? "Sincronizzando..." : "Sincronizza"}
                 </button>
             </div>
 

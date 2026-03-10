@@ -136,3 +136,19 @@ async def get_product_orders(
             r["created_at"] = r["created_at"].isoformat()
             
     return results
+
+
+@router.post("/sync")
+async def force_sync(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    context: tuple = Depends(get_current_user_and_bakery)
+):
+    """Forza una sincronizzazione immediata con WooCommerce per questa bakery."""
+    _, bakery_id = context
+    bakery = await db.bakeries.find_one({"_id": bakery_id})
+    if not bakery:
+        raise HTTPException(status_code=404, detail="Bakery not found")
+    from services.woocommerce_sync import sync_bakery
+    await sync_bakery(bakery)
+    products_count = await db.products.count_documents({"bakery_id": bakery_id})
+    return {"status": "ok", "products_synced": products_count}

@@ -34,6 +34,7 @@ export const updateIngredient = async (id, data) => (await api.put(`/inventory/i
 export const deleteIngredient = async (id) => (await api.delete(`/inventory/ingredients/${id}`)).data; // NEW
 
 export const getProducts = async () => (await api.get('/inventory/products')).data;
+export const forceSyncProducts = async () => (await api.post('/inventory/sync')).data;
 export const getProductOrders = async (productId) => (await api.get(`/inventory/products/${productId}/orders`)).data;
 export const seedInventory = async () => (await api.post('/inventory/seed')).data;
 
