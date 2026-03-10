@@ -16,12 +16,13 @@ router = APIRouter(prefix="/webhooks/woocommerce", tags=["webhooks"])
 async def verify_webhook_signature(request: Request, secret: str, x_wc_webhook_signature: str):
     body = await request.body()
     if not secret:
-        logger.warning("Webhook received but no secret configured in DB/Env.")
-        return True 
-        
+        logger.warning("Webhook received but no secret configured — accepting without verification.")
+        return True
+    if not x_wc_webhook_signature:
+        logger.warning("Webhook missing signature header — rejecting.")
+        return False
     digest = hmac.new(secret.encode('utf-8'), body, hashlib.sha256).digest()
     calculated_signature = base64.b64encode(digest).decode('utf-8')
-    
     return hmac.compare_digest(calculated_signature, x_wc_webhook_signature)
 
 @router.post("/order")

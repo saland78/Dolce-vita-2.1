@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Response, Request, Depends
+from fastapi.responses import RedirectResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime, timedelta, timezone
-import os, uuid, requests
+import os, uuid, secrets, requests
 from database import get_db
 from models import User, UserRole, Bakery
 
@@ -11,9 +12,33 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 
+# Rate limiting semplice in memoria
+_login_attempts = {}
+
+def check_rate_limit(ip: str) -> bool:
+    """Max 10 tentativi di login per IP negli ultimi 5 minuti."""
+    now = datetime.now(timezone.utc)
+    attempts = _login_attempts.get(ip, [])
+    attempts = [t for t in attempts if (now - t).seconds < 300]
+    if len(attempts) >= 10:
+        return False
+    attempts.append(now)
+    _login_attempts[ip] = attempts
+    return True
+
 @router.get("/google")
-async def google_login():
-    from fastapi.responses import RedirectResponse
+async def google_login(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
+    client_ip = request.headers.get("x-forwarded-for", request.client.host)
+    if not check_rate_limit(client_ip):
+        raise HTTPException(status_code=429, detail="Troppi tentativi. Riprova tra qualche minuto.")
+    
+    # CSRF state token
+    state = secrets.token_urlsafe(32)
+    await db.oauth_states.insert_one({
+        "state": state,
+        "created_at": datetime.now(timezone.utc)
+    })
+    
     scope = "openid email profile"
     url = (
         f"https://accounts.google.com/o/oauth2/v2/auth"
@@ -22,12 +47,24 @@ async def google_login():
         f"&response_type=code"
         f"&scope={scope}"
         f"&access_type=offline"
+        f"&state={state}"
     )
     return RedirectResponse(url)
 
 @router.get("/callback")
-async def google_callback(code: str, response: Response, db: AsyncIOMotorDatabase = Depends(get_db)):
-    from fastapi.responses import RedirectResponse
+async def google_callback(
+    code: str,
+    state: str = None,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    # Verifica CSRF state
+    if not state:
+        raise HTTPException(status_code=400, detail="Missing state parameter")
+    
+    stored_state = await db.oauth_states.find_one_and_delete({"state": state})
+    if not stored_state:
+        raise HTTPException(status_code=400, detail="Invalid or expired state")
+
     token_resp = requests.post("https://oauth2.googleapis.com/token", data={
         "code": code,
         "client_id": GOOGLE_CLIENT_ID,
@@ -82,7 +119,7 @@ async def google_callback(code: str, response: Response, db: AsyncIOMotorDatabas
         )
         bakery_id = user.get("bakery_id")
 
-    session_token = str(uuid.uuid4())
+    session_token = secrets.token_urlsafe(48)
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     await db.user_sessions.insert_one({
         "user_id": user["user_id"],
@@ -109,9 +146,17 @@ async def get_current_user(request: Request, db: AsyncIOMotorDatabase = Depends(
     session_token = request.cookies.get("session_token")
     if not session_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    
     session = await db.user_sessions.find_one({"session_token": session_token})
     if not session:
         raise HTTPException(status_code=401, detail="Invalid session")
+    
+    # Controllo scadenza
+    expires_at = session.get("expires_at")
+    if expires_at and datetime.now(timezone.utc) > expires_at.replace(tzinfo=timezone.utc) if expires_at.tzinfo is None else expires_at:
+        await db.user_sessions.delete_one({"session_token": session_token})
+        raise HTTPException(status_code=401, detail="Session expired")
+    
     user = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
     return user
 
@@ -120,5 +165,5 @@ async def logout(response: Response, request: Request, db: AsyncIOMotorDatabase 
     session_token = request.cookies.get("session_token")
     if session_token:
         await db.user_sessions.delete_one({"session_token": session_token})
-    response.delete_cookie(key="session_token")
+    response.delete_cookie(key="session_token", path="/")
     return {"message": "Logged out"}
