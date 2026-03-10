@@ -55,13 +55,17 @@ const Calendar = () => {
     };
 
     // Costruisci la griglia del mese
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(currentDate);
-    const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
-    // Offset lunedì = 0
-    const startOffset = (getDay(monthStart) + 6) % 7;
-    const blanks = Array(startOffset).fill(null);
+    let days = [];
+    let blanks = [];
+    try {
+        const monthStart = startOfMonth(currentDate);
+        const monthEnd = endOfMonth(currentDate);
+        days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+        const startOffset = (getDay(monthStart) + 6) % 7;
+        blanks = Array(startOffset).fill(null);
+    } catch(e) {
+        console.error('Calendar grid error:', e);
+    }
 
     if (loading) return (
         <Layout>
