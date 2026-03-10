@@ -17,7 +17,7 @@ class CustomerSummary(BaseModel):
     total_spent: float
     last_order_date: Optional[str] = None
     orders_count: Optional[int] = 0
-    source: str = "woocommerce"
+    source: Optional[str] = "woocommerce"
 
 @router.get("/", response_model=List[CustomerSummary])
 async def get_customers(
