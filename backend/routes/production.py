@@ -69,9 +69,10 @@ async def upsert_recipe(
     _, bakery_id = context
     recipe.bakery_id = bakery_id
     recipe_dict = recipe.model_dump(by_alias=True)
+    update_dict = {k: v for k, v in recipe_dict.items() if k != "_id"}
     await db.recipes.update_one(
         {"bakery_id": bakery_id, "product_id": recipe.product_id},
-        {"$set": recipe_dict},
+        {"$set": update_dict, "$setOnInsert": {"_id": recipe_dict["_id"]}},
         upsert=True
     )
     return recipe_dict
