@@ -6,6 +6,7 @@ import hashlib
 import base64
 import json
 import logging
+from services.email_service import EmailService
 from datetime import datetime, timezone
 from services.parsers import parse_wc_order_meta, parse_wc_item_meta
 from models import OrderStatus
@@ -123,6 +124,20 @@ async def webhook_order_updated(
             upsert=True
         )
         
+        # Invia email di conferma solo per nuovi ordini
+        if not existing:
+            customer_email = order_data.get("customer_email")
+            if customer_email and bakery:
+                await EmailService.send_order_confirmed(
+                    db=db,
+                    bakery_id=bakery["_id"],
+                    to_email=customer_email,
+                    customer_name=order_data.get("customer_name", "Cliente"),
+                    order_id=custom_id,
+                    items=order_data.get("items", []),
+                    total=order_data.get("total_amount", 0.0)
+                )
+
         logger.info(f"Webhook processed for order {wc_id}")
         return {"status": "success", "order_id": custom_id}
 

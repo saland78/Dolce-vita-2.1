@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { getSettings, updateSettings } from '../api/api';
-import { Save, CheckCircle, Store, Link as LinkIcon, Key } from 'lucide-react';
+import { Save, CheckCircle, Store, Link as LinkIcon, Key, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 
 const SettingsPage = () => {
@@ -10,6 +10,9 @@ const SettingsPage = () => {
         wc_url: "",
         wc_consumer_key: "",
         wc_consumer_secret: ""
+    });
+    const [smtpData, setSmtpData] = useState({
+        host: "", port: "587", username: "", password: "", from_email: ""
     });
     const [status, setStatus] = useState({ has_keys: false });
     const [loading, setLoading] = useState(true);
@@ -22,7 +25,15 @@ const SettingsPage = () => {
                     name: data.name,
                     wc_url: data.wc_url || ""
                 }));
-                setStatus({ has_keys: data.has_keys });
+                setStatus({ has_keys: data.has_keys, smtp_configured: data.smtp_configured });
+                if (data.smtp_host) {
+                    setSmtpData(prev => ({
+                        ...prev,
+                        host: data.smtp_host || "",
+                        username: data.smtp_username || "",
+                        from_email: data.smtp_from_email || "",
+                    }));
+                }
             })
             .catch(console.error)
             .finally(() => setLoading(false));
@@ -31,9 +42,13 @@ const SettingsPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await updateSettings(formData);
+            const payload = { ...formData };
+            if (smtpData.host && smtpData.username && smtpData.password) {
+                payload.smtp_settings = { ...smtpData, port: parseInt(smtpData.port) || 587 };
+            }
+            await updateSettings(payload);
             toast.success("Impostazioni salvate con successo!");
-            setStatus(prev => ({ ...prev, has_keys: !!(formData.wc_consumer_key && formData.wc_consumer_secret) || prev.has_keys }));
+            setStatus(prev => ({ ...prev, has_keys: !!(formData.wc_consumer_key && formData.wc_consumer_secret) || prev.has_keys, smtp_configured: !!(smtpData.host && smtpData.username && smtpData.password) }));
             // Clear secrets for security (UI only)
             setFormData(prev => ({ ...prev, wc_consumer_key: "", wc_consumer_secret: "" }));
         } catch (err) {
@@ -129,6 +144,67 @@ const SettingsPage = () => {
                             <p className="text-xs text-muted-foreground mt-2">
                                 Trova queste chiavi nel tuo WordPress in: WooCommerce {'>'} Impostazioni {'>'} Avanzate {'>'} REST API.
                             </p>
+                        </div>
+                    </div>
+
+
+                    {/* Email / SMTP Config */}
+                    <div className="bg-white p-6 rounded-xl border border-border shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3 text-primary">
+                                <Mail size={20} />
+                                <h2 className="font-serif text-lg font-bold">Email Clienti (SMTP)</h2>
+                            </div>
+                            {status.smtp_configured && (
+                                <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full">
+                                    <CheckCircle size={12} /> Configurato
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-4">
+                            Configura un server SMTP per inviare email ai clienti (conferma ordine, ordine pronto).
+                            Puoi usare Gmail (smtp.gmail.com, porta 587) con una <strong>App Password</strong>.
+                        </p>
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium text-muted-foreground mb-1">Server SMTP</label>
+                                    <input type="text" placeholder="smtp.gmail.com"
+                                        className="w-full p-2 rounded-lg border border-border focus:ring-2 focus:ring-accent outline-none text-sm"
+                                        value={smtpData.host}
+                                        onChange={e => setSmtpData({...smtpData, host: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-muted-foreground mb-1">Porta</label>
+                                    <input type="number" placeholder="587"
+                                        className="w-full p-2 rounded-lg border border-border focus:ring-2 focus:ring-accent outline-none text-sm"
+                                        value={smtpData.port}
+                                        onChange={e => setSmtpData({...smtpData, port: e.target.value})} />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-medium text-muted-foreground mb-1">Email mittente</label>
+                                    <input type="email" placeholder="info@pasticceria.it"
+                                        className="w-full p-2 rounded-lg border border-border focus:ring-2 focus:ring-accent outline-none text-sm"
+                                        value={smtpData.from_email}
+                                        onChange={e => setSmtpData({...smtpData, from_email: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-muted-foreground mb-1">Username</label>
+                                    <input type="text" placeholder="tuaemail@gmail.com"
+                                        className="w-full p-2 rounded-lg border border-border focus:ring-2 focus:ring-accent outline-none text-sm"
+                                        value={smtpData.username}
+                                        onChange={e => setSmtpData({...smtpData, username: e.target.value})} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-muted-foreground mb-1">Password / App Password</label>
+                                <input type="password" placeholder="••••••••••••"
+                                    className="w-full p-2 rounded-lg border border-border focus:ring-2 focus:ring-accent outline-none text-sm"
+                                    value={smtpData.password}
+                                    onChange={e => setSmtpData({...smtpData, password: e.target.value})} />
+                            </div>
                         </div>
                     </div>
 

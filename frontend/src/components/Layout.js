@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Box, Settings, ChefHat, LogOut, CakeSlice, Users, ClipboardList, BookOpen, Calendar, Menu, X } from 'lucide-react';
+import { LayoutDashboard, BarChart2, ShoppingBag, Box, Settings, ChefHat, LogOut, CakeSlice, Users, ClipboardList, BookOpen, Calendar, Menu, X } from 'lucide-react';
 import { logout, getCurrentUser } from '../api/api';
 import { toast } from 'sonner';
 
