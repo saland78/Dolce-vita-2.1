@@ -3,10 +3,7 @@ import { ChefHat } from 'lucide-react';
 
 const Login = () => {
     const handleLogin = () => {
-        // EMERGENT AUTH (Preview Mode)
-        // Redirects to Emergent's managed auth page, which returns to this page with #session_id=...
-        const redirectUrl = window.location.origin + '/dashboard';
-        window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+        window.location.href = '/api/auth/google';
     };
 
     return (
@@ -17,7 +14,7 @@ const Login = () => {
                 </div>
                 
                 <h1 className="text-4xl font-serif text-primary mb-2">DolceVita</h1>
-                <p className="text-muted-foreground mb-8">Accesso Anteprima (Emergent)</p>
+                <p className="text-muted-foreground mb-8">Gestionale Pasticceria</p>
 
                 <button 
                     onClick={handleLogin}
