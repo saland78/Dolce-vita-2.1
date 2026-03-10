@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { getCustomers } from '../api/api';
-import { User, Mail, ShoppingBag, Calendar, ChevronDown, ChevronUp, FileText, Download } from 'lucide-react';
+import { User, Mail, ShoppingBag, Calendar, ChevronDown, ChevronUp, FileText, Download, Search, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -24,6 +24,7 @@ const Clients = () => {
     const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1);
     const [reportYear, setReportYear] = useState(new Date().getFullYear());
     const [downloadingReport, setDownloadingReport] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         getCustomers()
@@ -77,6 +78,15 @@ const Clients = () => {
         }
     };
 
+    const filteredCustomers = customers.filter(c => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+            c.name?.toLowerCase().includes(q) ||
+            c.email?.toLowerCase().includes(q)
+        );
+    });
+
     if (loading) return <div className="flex h-screen items-center justify-center text-primary font-serif">Caricamento Clienti...</div>;
 
     const months = [
@@ -119,14 +129,45 @@ const Clients = () => {
                 </div>
             </div>
 
+            {/* Barra ricerca */}
+            <div className="relative mb-4">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Search size={16} className="text-muted-foreground" />
+                </div>
+                <input
+                    type="text"
+                    placeholder="Cerca per nome o email..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-10 py-3 bg-white border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition shadow-sm"
+                />
+                {searchQuery && (
+                    <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-muted-foreground hover:text-foreground"
+                    >
+                        <X size={16} />
+                    </button>
+                )}
+            </div>
+
             {/* Totale */}
             <div className="mb-4 text-sm text-muted-foreground">
-                Totale: <strong>{customers.length}</strong> clienti
+                {searchQuery
+                    ? <><strong>{filteredCustomers.length}</strong> risultati per "<em>{searchQuery}</em>"</>
+                    : <>Totale: <strong>{customers.length}</strong> clienti</>
+                }
             </div>
 
             {/* Lista clienti */}
             <div className="flex flex-col gap-4">
-                {customers.map((customer, idx) => (
+                {filteredCustomers.length === 0 && (
+                    <div className="text-center py-16 text-muted-foreground">
+                        <Search size={32} className="mx-auto mb-3 opacity-30" />
+                        <p>Nessun cliente trovato per "<em>{searchQuery}</em>"</p>
+                    </div>
+                )}
+                {filteredCustomers.map((customer, idx) => (
                     <div key={idx} className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
                         {/* Card cliente */}
                         <div
