@@ -1,9 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { getProducts, getIngredients } from '../api/api';
-import { Plus, X, Check, BookOpen, ChefHat } from 'lucide-react';
+import { Plus, X, Check, BookOpen, ChefHat, TrendingUp, Euro } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../api/api';
+
+
+// Converte tutto in kg/litri per confronto uniforme
+const toBaseUnit = (quantity, unit) => {
+    if (unit === 'gr') return quantity / 1000;
+    if (unit === 'litri') return quantity;
+    if (unit === 'kg') return quantity;
+    return quantity; // pz rimane pz
+};
+
+const calculateRecipeCost = (recipe, ingredientsMap) => {
+    if (!recipe || !recipe.ingredients?.length) return null;
+    let total = 0;
+    const breakdown = [];
+    for (const ing of recipe.ingredients) {
+        const master = ingredientsMap[ing.name];
+        if (!master || !master.cost_per_unit) continue;
+        // Quantità nella ricetta convertita in unità base
+        const qtyBase = toBaseUnit(ing.quantity_per_unit, ing.unit);
+        // Costo dell'ingrediente nel magazzino è per 1 unità (kg/litri/pz)
+        const cost = qtyBase * master.cost_per_unit;
+        total += cost;
+        breakdown.push({ name: ing.name, qty: ing.quantity_per_unit, unit: ing.unit, cost });
+    }
+    return { total, breakdown };
+};
 
 const Recipes = () => {
     const [products, setProducts] = useState([]);
@@ -81,6 +107,9 @@ const Recipes = () => {
 
     const getRecipeForProduct = (pid) => recipes.find(r => r.product_id === pid);
 
+    // Mappa nome → ingrediente per calcolo costi
+    const ingredientsMap = Object.fromEntries(ingredients.map(i => [i.name, i]));
+
     if (loading) return <div className="flex h-screen items-center justify-center text-primary font-serif">Caricamento...</div>;
 
     return (
@@ -114,16 +143,65 @@ const Recipes = () => {
                                 )}
                             </div>
 
-                            {recipe ? (
-                                <div className="space-y-1 mb-4">
-                                    {recipe.ingredients.map((ing, i) => (
-                                        <div key={i} className="flex justify-between text-sm text-foreground/80 bg-muted/30 rounded px-2 py-1">
-                                            <span>{ing.name}</span>
-                                            <span className="font-mono text-xs text-muted-foreground">{ing.quantity_per_unit} {ing.unit}</span>
+                            {recipe ? (() => {
+                                const costData = calculateRecipeCost(recipe, ingredientsMap);
+                                const margin = costData && product.price ? ((product.price - costData.total) / product.price * 100) : null;
+                                return (
+                                    <div className="mb-4">
+                                        <div className="space-y-1 mb-3">
+                                            {recipe.ingredients.map((ing, i) => {
+                                                const master = ingredientsMap[ing.name];
+                                                const ingCost = master?.cost_per_unit
+                                                    ? toBaseUnit(ing.quantity_per_unit, ing.unit) * master.cost_per_unit
+                                                    : null;
+                                                return (
+                                                    <div key={i} className="flex justify-between text-sm text-foreground/80 bg-muted/30 rounded px-2 py-1">
+                                                        <span>{ing.name}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-mono text-xs text-muted-foreground">{ing.quantity_per_unit} {ing.unit}</span>
+                                                            {ingCost !== null && (
+                                                                <span className="font-mono text-xs text-accent">€{ingCost.toFixed(3)}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                    ))}
-                                </div>
-                            ) : (
+                                        {costData && (
+                                            <div className="rounded-xl border border-border bg-gradient-to-r from-amber-50 to-white p-3 mt-2">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                                        <Euro size={12} /> Costo produzione
+                                                    </span>
+                                                    <span className="font-bold text-sm text-primary">€{costData.total.toFixed(3)}</span>
+                                                </div>
+                                                {product.price > 0 && (
+                                                    <>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <span className="text-xs text-muted-foreground">Prezzo vendita</span>
+                                                            <span className="text-sm font-medium">€{product.price.toFixed(2)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                                <TrendingUp size={12} /> Margine
+                                                            </span>
+                                                            <span className={`text-sm font-bold ${margin >= 50 ? 'text-green-600' : margin >= 20 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                                                {margin !== null ? `${margin.toFixed(1)}%` : '—'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+                                                            <div
+                                                                className={`h-full rounded-full transition-all ${margin >= 50 ? 'bg-green-500' : margin >= 20 ? 'bg-yellow-400' : 'bg-red-500'}`}
+                                                                style={{ width: `${Math.min(Math.max(margin || 0, 0), 100)}%` }}
+                                                            />
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })() : (
                                 <p className="text-sm text-muted-foreground italic mb-4">Nessuna ricetta configurata</p>
                             )}
 
