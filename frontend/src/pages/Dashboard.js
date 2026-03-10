@@ -131,7 +131,7 @@ const Dashboard = () => {
                     >
                         {notificationsEnabled ? <Bell size={18} /> : <BellOff size={18} />}
                     </button>
-                    <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-border">
+                    <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-border overflow-x-auto max-w-full">
                         {[
                             { label: 'Oggi', value: 'today' },
                             { label: '7 Giorni', value: '7d' },
@@ -142,7 +142,7 @@ const Dashboard = () => {
                             <button
                                 key={opt.value}
                                 onClick={() => setRange(opt.value)}
-                                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                                className={`px-2 py-1 text-xs md:text-sm md:px-3 md:py-1.5 font-medium rounded-md transition-all whitespace-nowrap ${
                                     range === opt.value
                                     ? 'bg-primary text-white shadow-sm'
                                     : 'text-muted-foreground hover:bg-muted'

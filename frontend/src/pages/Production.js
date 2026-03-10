@@ -47,7 +47,7 @@ const Production = () => {
 
     return (
         <Layout>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
                 <div>
                     <h1 className="text-3xl font-serif text-primary">Piano di Produzione</h1>
                     <p className="text-muted-foreground">Cosa sfornare oggi per evadere gli ordini aperti.</p>

@@ -90,7 +90,7 @@ const Inventory = () => {
 
     return (
         <Layout>
-             <div className="flex justify-between items-center mb-6">
+             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
                 <div>
                     <h1 className="text-3xl font-serif text-primary">Magazzino Materie Prime</h1>
                     <p className="text-muted-foreground">Gestione scorte interne (Farina, Zucchero, etc.)</p>
@@ -103,8 +103,8 @@ const Inventory = () => {
                 </button>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-border overflow-hidden">
-                <table className="w-full text-left border-collapse">
+            <div className="bg-white rounded-2xl shadow-sm border border-border overflow-x-auto">
+                <table className="w-full min-w-[600px] text-left border-collapse">
                     <thead className="bg-secondary/30 text-primary font-serif">
                         <tr>
                             <th className="p-4 font-semibold">Ingrediente</th>
@@ -172,7 +172,7 @@ const Inventory = () => {
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
-                        <div className="flex justify-between items-center mb-6">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
                             <h2 className="text-2xl font-serif text-primary">
                                 {editMode ? "Modifica Ingrediente" : "Nuovo Ingrediente"}
                             </h2>

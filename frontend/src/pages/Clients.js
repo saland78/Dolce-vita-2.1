@@ -146,11 +146,11 @@ const Clients = () => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-6">
-                                <div className="text-right hidden md:block">
+                                <div className="text-right hidden sm:block">
                                     <div className="text-xs text-muted-foreground">Ordini</div>
                                     <div className="font-bold text-primary">{customer.orders_count || 0}</div>
                                 </div>
-                                <div className="text-right hidden md:block">
+                                <div className="text-right hidden sm:block">
                                     <div className="text-xs text-muted-foreground">Ultimo ordine</div>
                                     <div className="text-sm font-medium flex items-center gap-1">
                                         <Calendar size={12} />

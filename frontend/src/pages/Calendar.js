@@ -80,7 +80,7 @@ const Calendar = () => {
     return (
         <Layout>
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                 <div>
                     <h1 className="text-3xl font-serif text-primary">Calendario Ordini</h1>
                     <p className="text-muted-foreground">Visualizza le consegne e i ritiri per data.</p>
@@ -110,7 +110,7 @@ const Calendar = () => {
                 </div>
             </div>
 
-            <div className="flex gap-6">
+            <div className="flex flex-col lg:flex-row gap-6">
                 {/* Griglia calendario */}
                 <div className="flex-1 bg-white rounded-xl border border-border shadow-sm overflow-hidden">
                     {/* Intestazione giorni */}
@@ -168,7 +168,7 @@ const Calendar = () => {
                 </div>
 
                 {/* Pannello laterale dettaglio giorno */}
-                <div className="w-72 shrink-0">
+                <div className="w-full lg:w-72 lg:shrink-0">
                     {selectedDay ? (
                         <div className="bg-white rounded-xl border border-border shadow-sm p-4">
                             <div className="flex items-center gap-2 mb-4">
