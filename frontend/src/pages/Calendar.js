@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User } from 'lucide-react';
+import { getOrders } from '../api/api';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday, addMonths, subMonths } from 'date-fns';
 import { it } from 'date-fns/locale';
-
-const API_BASE = process.env.REACT_APP_BACKEND_URL || '';
 
 const statusColors = {
     received: { bg: 'bg-yellow-400', text: 'text-yellow-900', light: 'bg-yellow-50 border-yellow-200' },
@@ -29,12 +28,7 @@ const Calendar = () => {
 
     const fetchOrders = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_BASE}/api/orders/`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-                credentials: 'include'
-            });
-            const data = await res.json();
+            const data = await getOrders();
             setOrders(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error(e);
