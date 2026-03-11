@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Layout from '../components/Layout';
-import { getStats, getOrders, getSalesHistory, getCurrentUser, getIngredients } from '../api/api';
+import { getStats, getOrders, getSalesHistory, getCurrentUser, getIngredients, getProducts } from '../api/api';
 import { ArrowUpRight, Clock, ChefHat, Package, AlertTriangle, Bell, BellOff } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
