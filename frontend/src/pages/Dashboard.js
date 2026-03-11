@@ -66,44 +66,51 @@ const Dashboard = () => {
 
     const fetchData = async () => {
         try {
+            // Ogni chiamata indipendente — un errore non blocca le altre
             const [userData, statsData, ordersData, historyData, ingredientsData, productsData] = await Promise.all([
-                getCurrentUser(),
-                getStats(),
-                getOrders(),
-                getSalesHistory(range),
-                getIngredients(),
-                getProducts().catch(() => []),
+                getCurrentUser().catch(e => { console.error("getCurrentUser failed:", e); return null; }),
+                getStats().catch(e => { console.error("getStats failed:", e); return null; }),
+                getOrders().catch(e => { console.error("getOrders failed:", e); return []; }),
+                getSalesHistory(range).catch(e => { console.error("getSalesHistory failed:", e); return []; }),
+                getIngredients().catch(e => { console.error("getIngredients failed:", e); return []; }),
+                getProducts().catch(e => { console.error("getProducts failed:", e); return []; }),
             ]);
+
+            if (userData) setUser(userData);
+            if (statsData) setStats(statsData);
+            if (historyData) setChartData(historyData);
+
             // Mappa id → prezzo aggiornato
             const priceMap = {};
             (productsData || []).forEach(p => { priceMap[p._id] = p.price; });
             setProductPrices(priceMap);
-            setUser(userData);
-            setStats(statsData);
-            setChartData(historyData);
 
             // --- Avvisi scorte basse ---
-            const low = ingredientsData.filter(ing => ing.reorder_threshold > 0 && ing.quantity <= ing.reorder_threshold);
-            setLowStockIngredients(low);
+            if (ingredientsData?.length) {
+                const low = ingredientsData.filter(ing => ing.reorder_threshold > 0 && ing.quantity <= ing.reorder_threshold);
+                setLowStockIngredients(low);
+            }
 
             // --- Notifiche nuovi ordini ---
-            const currentIds = new Set(ordersData.map(o => o._id));
-            if (prevOrderIdsRef.current !== null) {
-                const newOrders = ordersData.filter(o => !prevOrderIdsRef.current.has(o._id));
-                if (newOrders.length > 0 && notificationsEnabled) {
-                    newOrders.forEach(o => {
-                        toast.success(`🔔 Nuovo ordine da ${o.customer_name}!`, {
-                            description: `${o.items.length} articoli • ${formatCurrency(o.total_amount)}`,
-                            duration: 8000,
+            if (ordersData) {
+                const currentIds = new Set(ordersData.map(o => o._id));
+                if (prevOrderIdsRef.current !== null) {
+                    const newOrders = ordersData.filter(o => !prevOrderIdsRef.current.has(o._id));
+                    if (newOrders.length > 0 && notificationsEnabled) {
+                        newOrders.forEach(o => {
+                            toast.success(`🔔 Nuovo ordine da ${o.customer_name}!`, {
+                                description: `${o.items.length} articoli • ${formatCurrency(o.total_amount)}`,
+                                duration: 8000,
+                            });
                         });
-                    });
-                    playNotificationSound();
+                        playNotificationSound();
+                    }
                 }
+                prevOrderIdsRef.current = currentIds;
+                setRecentOrders(ordersData.slice(0, 5));
             }
-            prevOrderIdsRef.current = currentIds;
-            setRecentOrders(ordersData.slice(0, 5));
         } catch (error) {
-            console.error("Failed to fetch dashboard data", error);
+            console.error("fetchData unexpected error:", error);
         } finally {
             setLoading(false);
         }
