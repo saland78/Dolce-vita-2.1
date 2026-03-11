@@ -158,6 +158,10 @@ async def get_current_user(request: Request, db: AsyncIOMotorDatabase = Depends(
         raise HTTPException(status_code=401, detail="Session expired")
     
     user = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
+    if not user:
+        # Sessione orfana - utente non esiste più
+        await db.user_sessions.delete_one({"session_token": session_token})
+        raise HTTPException(status_code=401, detail="User not found")
     return user
 
 @router.post("/logout")
