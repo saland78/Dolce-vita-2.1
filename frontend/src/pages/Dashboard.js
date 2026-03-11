@@ -34,6 +34,7 @@ const Dashboard = () => {
     const [user, setUser] = useState(null);
     const [stats, setStats] = useState(null);
     const [recentOrders, setRecentOrders] = useState([]);
+    const [productPrices, setProductPrices] = useState({});
     const [chartData, setChartData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [range, setRange] = useState("7d");
@@ -65,13 +66,18 @@ const Dashboard = () => {
 
     const fetchData = async () => {
         try {
-            const [userData, statsData, ordersData, historyData, ingredientsData] = await Promise.all([
+            const [userData, statsData, ordersData, historyData, ingredientsData, productsData] = await Promise.all([
                 getCurrentUser(),
                 getStats(),
                 getOrders(),
                 getSalesHistory(range),
                 getIngredients(),
+                getProducts(),
             ]);
+            // Mappa id → prezzo aggiornato
+            const priceMap = {};
+            (productsData || []).forEach(p => { priceMap[p._id] = p.price; });
+            setProductPrices(priceMap);
             setUser(userData);
             setStats(statsData);
             setChartData(historyData);
@@ -212,7 +218,17 @@ const Dashboard = () => {
                             <div key={order._id} className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg transition-colors border-b border-dashed border-border last:border-0">
                                 <div>
                                     <p className="font-medium text-primary">{order.customer_name}</p>
-                                    <p className="text-xs text-muted-foreground">{order.items.length} articoli • {formatCurrency(order.total_amount)}</p>
+                                    <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                        {order.items.map(i => `${i.quantity > 1 ? i.quantity + 'x ' : ''}${i.product_name}`).join(', ')}
+                                    </p>
+                                    <p className="text-xs font-medium text-accent">
+                                        {formatCurrency(
+                                            order.items.reduce((sum, i) => {
+                                                const price = productPrices[i.product_id] ?? i.price ?? 0;
+                                                return sum + price * i.quantity;
+                                            }, 0) || order.total_amount
+                                        )}
+                                    </p>
                                 </div>
                                 <div className="flex flex-col items-end gap-1">
                                     <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
