@@ -34,7 +34,6 @@ const Dashboard = () => {
     const [user, setUser] = useState(null);
     const [stats, setStats] = useState(null);
     const [recentOrders, setRecentOrders] = useState([]);
-    const [debugInfo, setDebugInfo] = useState(null);
     const [productPrices, setProductPrices] = useState({});
     const [chartData, setChartData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -93,13 +92,6 @@ const Dashboard = () => {
             }
 
             // --- Notifiche nuovi ordini ---
-            // DEBUG
-            setDebugInfo({
-                userData: userData ? {name: userData.name, bakery_id: userData.bakery_id} : null,
-                statsData: statsData,
-                ordersCount: ordersData ? ordersData.length : 'null',
-            });
-
             if (ordersData) {
                 const currentIds = new Set(ordersData.map(o => o._id));
                 if (prevOrderIdsRef.current !== null) {
@@ -137,11 +129,6 @@ const Dashboard = () => {
 
     return (
         <Layout>
-            {debugInfo && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs font-mono">
-                    <strong>DEBUG:</strong> user={JSON.stringify(debugInfo.userData)} | stats={JSON.stringify(debugInfo.statsData)} | orders={debugInfo.ordersCount}
-                </div>
-            )}
             <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-4xl font-serif text-primary mb-2">
