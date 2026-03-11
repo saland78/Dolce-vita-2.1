@@ -72,7 +72,7 @@ const Dashboard = () => {
                 getOrders(),
                 getSalesHistory(range),
                 getIngredients(),
-                getProducts(),
+                getProducts().catch(() => []),
             ]);
             // Mappa id → prezzo aggiornato
             const priceMap = {};
